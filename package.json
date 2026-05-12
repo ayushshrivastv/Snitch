@@ -17,7 +17,7 @@
     "@solana/wallet-adapter-solflare": "^0.6.33",
     "@solana/wallet-standard-wallet-adapter-react": "^1.1.4",
     "@solana/web3.js": "^1.98.4",
-    "@umbra-privacy/sdk": "^4.0.0",
+    "@umbra-privacy/sdk": "^2.0.3",
     "@umbra-privacy/web-zk-prover": "^2.0.1",
     "@wallet-standard/app": "^1.1.0",
     "class-variance-authority": "^0.7.1",
