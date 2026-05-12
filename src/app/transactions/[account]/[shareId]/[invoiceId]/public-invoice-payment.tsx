@@ -40,6 +40,7 @@ type PublicInvoicePaymentProps = {
   amount: string;
   stablecoin: string;
   completed: boolean;
+  explorerHref: string;
 };
 
 type PaymentStatusResponse = {
@@ -292,6 +293,22 @@ function explorerUrl(signature: string) {
   return `https://explorer.solana.com/tx/${signature}${cluster}`;
 }
 
+function explorerHrefWithSignature({
+  href,
+  invoiceId,
+  signature,
+}: {
+  href: string;
+  invoiceId: string;
+  signature: string;
+}) {
+  const [pathname, rawQuery = ""] = href.split("?");
+  const params = new URLSearchParams(rawQuery);
+  params.set("signature", signature || `umbra-demo-${invoiceId}`);
+
+  return `${pathname}?${params.toString()}`;
+}
+
 function websocketEndpoint(rpcUrl: string) {
   if (process.env.NEXT_PUBLIC_SOLANA_WS_URL) {
     return process.env.NEXT_PUBLIC_SOLANA_WS_URL;
@@ -494,6 +511,7 @@ function PublicInvoicePaymentPanel({
   amount,
   stablecoin,
   completed,
+  explorerHref,
 }: PublicInvoicePaymentProps) {
   const { connection } = useConnection();
   const {
@@ -876,11 +894,11 @@ function PublicInvoicePaymentPanel({
     }
   };
 
-  const paidExplorerHref = txSignature
-    ? explorerUrl(txSignature)
-    : SOLANA_ENDPOINT.includes("devnet")
-      ? "https://explorer.solana.com/?cluster=devnet"
-      : "https://explorer.solana.com/";
+  const paidExplorerHref = explorerHrefWithSignature({
+    href: explorerHref,
+    invoiceId,
+    signature: txSignature,
+  });
 
   return (
     <div className="grid gap-2">
@@ -908,10 +926,8 @@ function PublicInvoicePaymentPanel({
       {paymentState === "paid" ? (
         <a
           href={paidExplorerHref}
-          target="_blank"
-          rel="noreferrer"
           className="mx-auto inline-flex items-center justify-center gap-1.5 text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label="Open Solana explorer"
+          aria-label="Open confidential transaction explorer"
         >
           Explorer
           <ExternalLink className="size-3.5" aria-hidden="true" />
@@ -983,8 +999,6 @@ function PublicInvoicePaymentPanel({
 
             <a
               href={paidExplorerHref}
-              target="_blank"
-              rel="noreferrer"
               className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               Explorer

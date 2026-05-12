@@ -1,7 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import Link from "next/link";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -135,6 +143,48 @@ type CreatedPayoutInput = {
   memo: string;
   screenReceiverWallet: boolean;
   confidentialPayout: boolean;
+};
+
+type AccessRole =
+  | "Administrator"
+  | "IAM Administrator"
+  | "Developer"
+  | "Analyst"
+  | "Transfer Analyst"
+  | "Support Specialist"
+  | "Support Associate"
+  | "Support Communications"
+  | "View only";
+
+type AccessMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: AccessRole;
+};
+
+const accessRoles: AccessRole[] = [
+  "Administrator",
+  "IAM Administrator",
+  "Developer",
+  "Analyst",
+  "Transfer Analyst",
+  "Support Specialist",
+  "Support Associate",
+  "Support Communications",
+  "View only",
+];
+
+const accessRoleDetails: Record<AccessRole, string> = {
+  Administrator: "Full wallet and team control.",
+  "IAM Administrator": "Manage members and roles.",
+  Developer: "Manage API keys and integrations.",
+  Analyst: "View balances and reports.",
+  "Transfer Analyst": "Prepare and review payouts.",
+  "Support Specialist": "Inspect support payment records.",
+  "Support Associate": "View limited support records.",
+  "Support Communications": "Send payment support messages.",
+  "View only": "Read-only wallet access.",
 };
 
 type CompanyInstance = {
@@ -2550,6 +2600,332 @@ function PaymentsView({
   );
 }
 
+function AccessRoleSelect({
+  value,
+  onChange,
+  label,
+  className = "",
+}: {
+  value: AccessRole;
+  onChange: (role: AccessRole) => void;
+  label: string;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const closeOnOutsidePointer = (event: MouseEvent) => {
+      if (
+        rootRef.current &&
+        event.target instanceof Node &&
+        !rootRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (listRef.current) {
+        listRef.current.scrollTop = 0;
+      }
+    });
+  }, [isOpen]);
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={listboxId}
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <span className="truncate">{value}</span>
+        <ChevronsUpDown
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </button>
+
+      {isOpen ? (
+        <div
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={label}
+          className="absolute right-0 top-[calc(100%+0.375rem)] z-30 w-[min(30rem,calc(100vw-3rem))] rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-xl"
+        >
+          {accessRoles.map((role) => {
+            const isSelected = role === value;
+
+            return (
+              <button
+                key={role}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(role);
+                  setIsOpen(false);
+                }}
+                className={`grid w-full grid-cols-[1.1rem_minmax(8rem,11rem)_minmax(0,1fr)] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  isSelected ? "bg-muted text-foreground" : "hover:bg-muted/70"
+                }`}
+              >
+                <span className="inline-flex size-4 items-center justify-center">
+                  {isSelected ? (
+                    <Check className="size-4" aria-hidden="true" />
+                  ) : null}
+                </span>
+                <span className="truncate text-sm font-semibold leading-5">
+                  {role}
+                </span>
+                <span className="truncate text-xs leading-5 text-muted-foreground">
+                  {accessRoleDetails[role]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AdminAccessModal({
+  members,
+  onClose,
+  onAddMember,
+  onRemoveMember,
+  onUpdateRole,
+}: {
+  members: AccessMember[];
+  onClose: () => void;
+  onAddMember: (member: Omit<AccessMember, "id">) => void;
+  onRemoveMember: (id: string) => void;
+  onUpdateRole: (id: string, role: AccessRole) => void;
+}) {
+  const [memberName, setMemberName] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState<AccessRole>("Developer");
+  const [error, setError] = useState("");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-access-title"
+    >
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-[760px] flex-col rounded-2xl bg-background shadow-2xl">
+        <header className="flex items-start justify-between gap-5 px-6 pb-1 pt-6">
+          <div className="min-w-0">
+            <h2
+              id="admin-access-title"
+              className="text-xl font-semibold leading-tight tracking-[-0.03em]"
+            >
+              Admin access
+            </h2>
+            <p className="mt-1.5 max-w-2xl text-xs leading-5 text-muted-foreground">
+              Invite members and assign clear account permissions for
+              Snitchpay.co wallets.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close admin access dialog"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 px-6 pb-4">
+          <form
+            className="grid gap-3 py-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const trimmedName = memberName.trim();
+              const trimmedEmail = memberEmail.trim();
+
+              if (!trimmedName || !trimmedEmail) {
+                setError("Add a member name and email before assigning access.");
+                return;
+              }
+
+              onAddMember({
+                name: trimmedName,
+                email: trimmedEmail,
+                role: memberRole,
+              });
+              setMemberName("");
+              setMemberEmail("");
+              setMemberRole("Developer");
+              setError("");
+            }}
+          >
+            <div className="rounded-xl border border-border bg-background p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)_210px]">
+                <label className="grid gap-2 text-sm font-medium">
+                  Member name*
+                  <input
+                    value={memberName}
+                    onChange={(event) => setMemberName(event.target.value)}
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Priya Shah"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium">
+                  Email*
+                  <input
+                    value={memberEmail}
+                    onChange={(event) => setMemberEmail(event.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    placeholder="priya@company.com"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                </label>
+                <div className="grid gap-2 text-sm font-medium">
+                  Role*
+                  <AccessRoleSelect
+                    value={memberRole}
+                    onChange={setMemberRole}
+                    label="Role for new admin member"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs leading-5 text-muted-foreground">
+                  The selected role controls wallet visibility, API key access,
+                  and payout permissions.
+                </p>
+                <Button
+                  type="submit"
+                  className="h-10 rounded-lg px-4 text-sm md:min-w-32"
+                  disabled={!memberName.trim() || !memberEmail.trim()}
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  Add member
+                </Button>
+              </div>
+            </div>
+
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </form>
+
+          <section className="pb-1">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Members</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Review every person with admin access and change roles from
+                  the popup list.
+                </p>
+              </div>
+              <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                {members.length} active
+              </span>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-border">
+              {members.length > 0 ? (
+                members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="grid min-h-12 grid-cols-1 gap-2 border-b border-border px-4 py-2 last:border-b-0 md:grid-cols-[minmax(0,1fr)_220px_40px] md:items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {member.name}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {member.email}
+                      </p>
+                    </div>
+                    <AccessRoleSelect
+                      value={member.role}
+                      onChange={(role) => onUpdateRole(member.id, role)}
+                      label={`Role for ${member.name}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveMember(member.id)}
+                      aria-label={`Remove ${member.name}`}
+                      className="inline-flex size-10 items-center justify-center justify-self-start rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:justify-self-end"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="grid min-h-32 place-items-center px-4 py-8 text-center">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      No members assigned
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add a name, email, and role above to grant admin access.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
+          <Button
+            type="button"
+            className="h-10 rounded-lg px-5"
+            onClick={onClose}
+          >
+            Done
+          </Button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function WalletsView({
   activeNav,
   setActiveNav,
@@ -2567,6 +2943,21 @@ function WalletsView({
   accountPayments: Payment[];
   accountTransactions: Transaction[];
 }) {
+  const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
+  const [accessMembers, setAccessMembers] = useState<AccessMember[]>([
+    {
+      id: "member_owner",
+      name: "Ayush Srivastava",
+      email: "ayush@snitchpay.co",
+      role: "IAM Administrator",
+    },
+    {
+      id: "member_dev",
+      name: "Dev Console",
+      email: "developers@snitchpay.co",
+      role: "Developer",
+    },
+  ]);
   const dayLabels = Array.from({ length: 10 }, (_, index) => `May ${index + 1}`);
   const receivedByDay = dayLabels.map((label) =>
     accountTransactions
@@ -2659,23 +3050,33 @@ function WalletsView({
                     payout runway for Snitchpay.co.
                   </p>
                 </div>
-                <div
-                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-muted p-1"
-                  aria-label="Wallet analytics range"
-                >
-                  {["24h", "7d", "30d", "90d"].map((range) => (
-                    <button
-                      key={range}
-                      type="button"
-                      className={`h-7 rounded-full px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        range === "30d"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {range}
-                    </button>
-                  ))}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div
+                    className="inline-flex h-9 items-center gap-1 rounded-full bg-muted p-1"
+                    aria-label="Wallet analytics range"
+                  >
+                    {["24h", "7d", "30d", "90d"].map((range) => (
+                      <button
+                        key={range}
+                        type="button"
+                        className={`h-7 rounded-full px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          range === "30d"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {range}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setIsAdminAccessOpen(true)}
+                    className="h-9 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    <UserRound className="size-4" aria-hidden="true" />
+                    Admin access
+                  </Button>
                 </div>
               </header>
 
@@ -2871,6 +3272,33 @@ function WalletsView({
           </div>
         </section>
       </div>
+      {isAdminAccessOpen ? (
+        <AdminAccessModal
+          members={accessMembers}
+          onClose={() => setIsAdminAccessOpen(false)}
+          onAddMember={(member) =>
+            setAccessMembers((currentMembers) => [
+              ...currentMembers,
+              {
+                id: `member_${Date.now()}`,
+                ...member,
+              },
+            ])
+          }
+          onRemoveMember={(id) =>
+            setAccessMembers((currentMembers) =>
+              currentMembers.filter((member) => member.id !== id),
+            )
+          }
+          onUpdateRole={(id, role) =>
+            setAccessMembers((currentMembers) =>
+              currentMembers.map((member) =>
+                member.id === id ? { ...member, role } : member,
+              ),
+            )
+          }
+        />
+      ) : null}
     </main>
   );
 }
@@ -4252,7 +4680,219 @@ function ApiKeysView({
   );
 }
 
+function LandingPage() {
+  const [isEarlyAccessOpen, setIsEarlyAccessOpen] = useState(false);
+  const [isEarlyAccessSubmitted, setIsEarlyAccessSubmitted] = useState(false);
+  const earlyAccessTitleId = useId();
+  const earlyAccessDescriptionId = useId();
+  const earlyAccessEmailId = useId();
+  const earlyAccessCompanyId = useId();
+  const earlyAccessEmailRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEarlyAccessOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsEarlyAccessOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    const focusTimer = window.setTimeout(() => {
+      earlyAccessEmailRef.current?.focus();
+    }, 0);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.clearTimeout(focusTimer);
+    };
+  }, [isEarlyAccessOpen]);
+
+  return (
+    <main className="min-h-screen bg-background px-5 py-4 text-foreground sm:px-8">
+      <header className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
+        <Link
+          href="/"
+          className="inline-flex min-h-10 items-center gap-2 rounded-full pr-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Image
+            src="/snitch-logo.png"
+            alt="Snitch logo"
+            width={30}
+            height={30}
+            className="shrink-0"
+          />
+          <span>Snitch</span>
+        </Link>
+        <Link
+          href="/?login=1"
+          className="inline-flex h-10 items-center justify-center rounded-full border border-border px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Log in
+        </Link>
+      </header>
+
+      <section className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-[720px] flex-col items-center justify-center py-10 text-center">
+        <span className="rounded-full border border-border px-3 py-1 text-sm text-muted-foreground">
+          Solana stablecoin payments
+        </span>
+        <h1 className="mt-4 text-[2.25rem] font-semibold leading-none tracking-[-0.04em] sm:text-[3rem]">
+          Snitch
+        </h1>
+        <p className="mx-auto mt-3 max-w-[34rem] text-[0.95rem] leading-6 text-muted-foreground">
+          Private stablecoin checkout, payout operations, and compliance records
+          for businesses that need clean Solana payment workflows.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setIsEarlyAccessOpen(true)}
+          className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-base font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Request early access
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </button>
+
+        <div className="mt-8 grid w-full gap-3 text-left sm:grid-cols-3">
+          {[
+            {
+              title: "Confidential checkout",
+              copy: "Route sensitive invoices through Umbra-backed payment flows.",
+              icon: ShieldCheck,
+            },
+            {
+              title: "Treasury view",
+              copy: "Track stablecoin balances, payouts, and settlement activity.",
+              icon: WalletNavIcon,
+            },
+            {
+              title: "Audit records",
+              copy: "Keep payment status, receipts, and compliance context together.",
+              icon: ReceiptText,
+            },
+          ].map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div
+                key={item.title}
+                className="rounded-[18px] border border-border bg-background p-4"
+              >
+                <span className="grid size-9 place-items-center rounded-full bg-muted text-muted-foreground">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <h2 className="mt-3 text-sm font-semibold">{item.title}</h2>
+                <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
+                  {item.copy}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {isEarlyAccessOpen ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-background/85 px-4 py-6 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsEarlyAccessOpen(false);
+            }
+          }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={earlyAccessTitleId}
+            aria-describedby={earlyAccessDescriptionId}
+            className="relative w-full max-w-[390px] rounded-[18px] border border-border bg-background p-5 text-left shadow-2xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setIsEarlyAccessSubmitted(true);
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setIsEarlyAccessOpen(false)}
+              className="absolute right-3 top-3 grid size-10 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Close early access form"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+
+            <h2
+              id={earlyAccessTitleId}
+              className="pr-10 text-lg font-semibold tracking-[-0.01em]"
+            >
+              Request early access
+            </h2>
+            <p
+              id={earlyAccessDescriptionId}
+              className="mt-1.5 text-sm leading-5 text-muted-foreground"
+            >
+              Tell us where to send your Snitch invite.
+            </p>
+
+            <div className="mt-5 grid gap-3">
+              <label
+                htmlFor={earlyAccessEmailId}
+                className="grid gap-1.5 text-sm font-medium"
+              >
+                Work email *
+                <input
+                  ref={earlyAccessEmailRef}
+                  id={earlyAccessEmailId}
+                  type="email"
+                  name="email"
+                  required
+                  autoComplete="email"
+                  spellCheck={false}
+                  placeholder="you@company.com"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </label>
+              <label
+                htmlFor={earlyAccessCompanyId}
+                className="grid gap-1.5 text-sm font-medium"
+              >
+                Company name
+                <input
+                  id={earlyAccessCompanyId}
+                  type="text"
+                  name="company"
+                  autoComplete="organization"
+                  placeholder="Company name"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              Submit request
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </button>
+
+            {isEarlyAccessSubmitted ? (
+              <p className="mt-3 text-center text-sm text-muted-foreground" role="status">
+                Request received. We will reach out with next steps.
+              </p>
+            ) : null}
+          </form>
+        </div>
+      ) : null}
+    </main>
+  );
+}
+
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeNav, setActiveNav] = useState<NavItem>("Dashboard");
   const [instances, setInstances] =
     useState<CompanyInstance[]>(initialInstances);
@@ -4433,6 +5073,22 @@ export default function HomePage() {
       ),
     );
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("login") === "1") {
+      const frameId = window.requestAnimationFrame(() => {
+        setIsLoggedIn(true);
+      });
+
+      return () => window.cancelAnimationFrame(frameId);
+    }
+  }, []);
+
+  if (!isLoggedIn) {
+    return <LandingPage />;
+  }
 
   if (activeNav === "Dashboard") {
     return (

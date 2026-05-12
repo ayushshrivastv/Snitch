@@ -188,6 +188,37 @@ function invoiceFromSearchParams(
   };
 }
 
+function confidentialExplorerHref({
+  account,
+  shareId,
+  invoiceId,
+  invoice,
+}: {
+  account: string;
+  shareId: string;
+  invoiceId: string;
+  invoice: InvoiceData;
+}) {
+  const params = new URLSearchParams({
+    customerName: invoice.customerName,
+    title: invoice.title,
+    memo: invoice.memo,
+    amount: invoice.amount,
+    stablecoin: invoice.stablecoin,
+    dueDate: invoice.dueDate,
+    createdAt: invoice.createdAt,
+    status: invoice.status,
+    confidential: String(invoice.confidential),
+    rail: "umbra",
+    network: "devnet",
+    signature: `umbra-demo-${invoiceId}`,
+  });
+
+  return `/transactions/${encodeURIComponent(account)}/${encodeURIComponent(
+    shareId,
+  )}/${encodeURIComponent(invoiceId)}/explorer?${params.toString()}`;
+}
+
 export async function generateMetadata({
   params,
 }: InvoicePageProps): Promise<Metadata> {
@@ -204,7 +235,7 @@ export default async function PublicInvoicePage({
   params,
   searchParams,
 }: InvoicePageProps) {
-  const { account, invoiceId } = await params;
+  const { account, shareId, invoiceId } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
   const decodedInvoiceId = decodeURIComponent(invoiceId);
   const merchantName = titleFromSlug(account);
@@ -224,6 +255,12 @@ export default async function PublicInvoicePage({
   };
   const isCompleted = invoice.status === "Succeeded";
   const paymentStatusLabel = isCompleted ? "Payment completed" : invoice.status;
+  const explorerHref = confidentialExplorerHref({
+    account,
+    shareId,
+    invoiceId: decodedInvoiceId,
+    invoice,
+  });
 
   return (
     <main className="min-h-screen bg-background px-5 py-4 text-foreground sm:px-8">
@@ -305,6 +342,7 @@ export default async function PublicInvoicePage({
                   amount={invoice.amount}
                   stablecoin={invoice.stablecoin}
                   completed={isCompleted}
+                  explorerHref={explorerHref}
                 />
               )}
               <p className="sr-only">
