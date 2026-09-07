@@ -1,0 +1,73 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+/.data/
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Local research captures and superseded prototypes
+/docs/research/
+/docs/design-references/
+/src/components/sites/
+/src/components/snitch-landing-page.tsx
+/src/components/floating-navbar-demo.tsx
+/scripts/prepare-dune-clone.mjs
+/scripts/download-assets-dune-com-7b520ede-home-2cc974af.mjs
+/public/sites/
+/public/images/snitch-dashboard-screenshot.png
+/public/file.svg
+/public/globe.svg
+/public/next.svg
+/public/vercel.svg
+/public/window.svg
+
+# Runtime state, credentials, and local editor artifacts
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.key
+*.p12
+*.pfx
+*.log
+.idea/
+.vscode/
+test-results/
+playwright-report/
