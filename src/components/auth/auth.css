@@ -1,0 +1,23 @@
+.snitch-auth { min-height: 100svh; position: relative; display: flex; flex-direction: column; align-items: center; padding: 34px 24px 24px; color: #25212b; background: radial-gradient(ellipse at 65% 20%, #7048d80a, transparent 48%), radial-gradient(ellipse at 12% 75%, #e3485007, transparent 45%), #fafaf9; font-family: Arial, sans-serif; }
+.snitch-auth * { box-sizing: border-box; }
+.snitch-auth :focus-visible { outline: 2px solid #7048d8; outline-offset: 4px; }
+.snitch-auth__brand { display: flex; align-items: center; align-self: flex-start; gap: 9px; text-decoration: none; color: #221c29; font-size: 22px; font-weight: 600; letter-spacing: -.8px; }
+.snitch-auth__card { width: 100%; max-width: 432px; margin-block: auto; padding: 64px 8px; text-align: center; }
+.snitch-auth__eyebrow { display: inline-block; border: 1px dashed #c5bacd; border-radius: 30px; padding: 6px 12px; color: #76677f; font: 10px/16px monospace; letter-spacing: .08em; text-transform: uppercase; }
+.snitch-auth h1 { margin: 26px 0 18px; font: 400 clamp(36px, 5vw, 48px)/1.08 Georgia, serif; letter-spacing: -1.6px; text-wrap: balance; }
+.snitch-auth__description { margin: 0 auto 29px; max-width: 350px; color: #736a7a; font-size: 15px; line-height: 1.65; text-wrap: pretty; }
+.snitch-auth__button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 50px; padding: 12px 18px; border: 1px solid #29222f; border-radius: 999px; background: #29222f; color: #fff; font: 500 14px/20px Arial, sans-serif; cursor: pointer; text-decoration: none; transition: background 150ms ease; }
+.snitch-auth__button:hover { background: #40314e; }
+.snitch-auth__button:disabled { cursor: wait; opacity: .6; }
+.snitch-auth__secondary { display: inline-block; margin-top: 18px; padding: 7px; border: 0; border-radius: 6px; background: transparent; color: #736a7a; font: 13px/20px Arial, sans-serif; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.snitch-auth__error { margin: 18px 0 0; color: #a03647; font-size: 13px; line-height: 1.6; }
+.snitch-auth__status { display: flex; justify-content: center; align-items: center; gap: 9px; min-height: 50px; color: #776786; font-size: 13px; }
+.snitch-auth__spinner { animation: snitch-auth-spin 1s linear infinite; }
+.snitch-auth__footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; color: #827889; font-size: 11px; }
+.snitch-auth__footer a { padding-block: 12px; color: #736a7a; text-decoration: none; }
+.snitch-auth__footer a:hover { text-decoration: underline; }
+.snitch-auth__footer span { display: flex; align-items: center; gap: 7px; }
+.snitch-auth__footer img { opacity: .68; }
+@keyframes snitch-auth-spin { to { transform: rotate(360deg); } }
+@media (max-width: 480px) { .snitch-auth { padding: 24px 20px 14px; } .snitch-auth__card { padding-inline: 0; } }
+@media (prefers-reduced-motion: reduce) { .snitch-auth__spinner { animation: none; } .snitch-auth__button { transition: none; } }
