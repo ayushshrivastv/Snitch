@@ -1,0 +1,20 @@
+.snitch-profile { width: min(440px, calc(100vw - 32px)); max-height: calc(100svh - 32px); margin: auto; padding: 32px; border: 1px solid #e5e2e8; border-radius: 24px; color: #25212b; background: #fff; box-shadow: 0 24px 80px #1e172424; font-family: Arial, sans-serif; }
+.snitch-profile::backdrop { background: #211a2945; backdrop-filter: blur(5px); }
+.snitch-profile * { box-sizing: border-box; }
+.snitch-profile :focus-visible { outline: 2px solid #7048d8; outline-offset: 3px; }
+.snitch-profile__eyebrow { color: #82718f; font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.snitch-profile h2 { margin: 18px 0 12px; font-size: 27px; font-weight: 500; line-height: 1.18; letter-spacing: -.8px; text-wrap: balance; }
+.snitch-profile p { margin: 0 0 28px; color: #756b7e; font-size: 14px; line-height: 1.55; }
+.snitch-profile label { display: block; margin-bottom: 9px; font-size: 13px; font-weight: 500; }
+.snitch-profile input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #d9d4df; border-radius: 10px; color: #25212b; background: #fff; font: inherit; font-size: 16px; }
+.snitch-profile input::placeholder { color: #a49caa; }
+.snitch-profile .snitch-profile__error { margin: 10px 0 0; color: #a03647; font-size: 12px; }
+.snitch-profile__continue { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; margin-top: 22px; padding: 12px 16px; border: 0; border-radius: 999px; color: #fff; background: #29222f; font-size: 14px; font-weight: 500; cursor: pointer; }
+.snitch-profile__continue:hover { background: #40314e; }
+.snitch-profile__sign-out { display: block; min-height: 40px; margin: 12px auto -8px; padding: 10px 14px; border: 0; border-radius: 8px; color: #756b7e; background: transparent; font-size: 12px; cursor: pointer; }
+.snitch-profile__sign-out:hover { color: #25212b; background: #f6f4f8; }
+.snitch-profile button:disabled, .snitch-profile input:disabled { cursor: wait; opacity: .65; }
+.snitch-profile__spinner { animation: snitch-profile-spin 1s linear infinite; }
+@keyframes snitch-profile-spin { to { transform: rotate(360deg); } }
+@media (max-width: 480px) { .snitch-profile { padding: 26px 24px; } }
+@media (prefers-reduced-motion: reduce) { .snitch-profile__spinner { animation: none; } }
