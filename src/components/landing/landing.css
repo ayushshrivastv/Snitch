@@ -1,0 +1,64 @@
+.dune-clone,
+.snitch-landing-nav {
+  --landing-gradient-start: #e34850;
+  --landing-gradient-end: #7048d8;
+}
+.dune-clone {
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+  --font-geist: "Geist", Arial, sans-serif;
+  --font-geist-mono: "Geist Mono", monospace;
+  --neue-haas-grotesk-display-55-roman: "neueHaasGroteskDisplay55Roman", Arial, sans-serif;
+  --neue-haas-grotesk-text-55-roman: "neueHaasGroteskText55Roman", Arial, sans-serif;
+  --neue-haas-grotesk-text-mono-55-roman: "neueHaasGroteskTextMono55Roman", monospace;
+  --tiempos-headline-light: "tiemposHeadlineLight", Georgia, serif;
+}
+.dune-clone #home-hero .pointer-events-none[style*="linear-gradient"],
+.dune-clone #home-get-started canvas {
+  background: linear-gradient(180deg, var(--landing-gradient-start) 0%, var(--landing-gradient-end) 100%) !important;
+}
+/* Match the neighboring surfaces exactly; only the middle carries a soft wash of color. */
+.dune-clone .snitch-closing-cta {
+  background: linear-gradient(180deg, #fafaf9 0%, #fafaf9 8%, #f8f6fa 55%, #f5f3f8 100%);
+}
+.dune-clone .snitch-closing-cta > canvas {
+  --closing-fade: linear-gradient(180deg, transparent 0%, #0000001a 16%, #00000099 36%, #000 52%, #00000099 68%, #0000001a 86%, transparent 100%);
+  opacity: .075;
+  -webkit-mask-image: var(--closing-fade);
+  mask-image: var(--closing-fade);
+  pointer-events: none;
+}
+.dune-clone .snitch-closing-cta__heading { color: #2b2531; }
+.dune-clone .snitch-closing-cta__description { color: #6b6274; }
+.dune-clone .snitch-closing-cta .button-v2 {
+  color: #3d3349;
+  background: #ffffffed;
+  border: 1px solid #ddd5e6;
+  box-shadow: 0 2px 6px #40305006, 0 6px 20px #40305005;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.dune-clone .snitch-closing-cta .button-v2:hover:not(:active):not(:disabled) {
+  color: #3d3349;
+  background: #fff;
+  border-color: #cdbcdc;
+  box-shadow: 0 4px 18px #60428114;
+}
+.dune-clone .snitch-closing-cta .button-v2:active:not(:disabled) { color: #3d3349; background: #f4eff8; }
+.dune-clone .button-v2,
+.dune-clone .button-v2:hover:not(:active):not(:disabled),
+.dune-clone .button-v2:active:not(:disabled) {
+  border-radius: 999px;
+}
+.dune-clone .dune-menu-popover { position: fixed; inset-inline: 0; z-index: 40; }
+.dune-clone .dune-menu-popover > div { position: static !important; inset: auto !important; }
+.dune-clone [data-dune-tabbed-section] [class*="transition-[height]"] { height: auto !important; }
+.dune-clone [data-grouped-carousel-cell] article { transition: background 180ms ease; }
+.dune-clone [data-grouped-carousel-cell] article:hover { background: linear-gradient(115deg, var(--landing-gradient-start) 0%, var(--landing-gradient-end) 100%); }
+.dune-clone [data-grouped-carousel-cell] article:hover h3,
+.dune-clone [data-grouped-carousel-cell] article:hover p { color: #fafaf9; }
+.dune-clone :focus-visible { outline: 2px solid var(--landing-gradient-end); outline-offset: 3px; }
+.dune-clone [class*="CookieNotification-module"] button { cursor: pointer; }
+body:has(.dune-clone) nextjs-portal { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .dune-clone *, .dune-clone *::before, .dune-clone *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
