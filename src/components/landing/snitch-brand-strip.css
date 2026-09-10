@@ -1,0 +1,42 @@
+.snitch-brand-strip {
+  --brand-strip-gutter: 16px;
+  border-bottom: 1px solid var(--snitch-rule, #dcdcd7);
+  background: var(--snitch-paper, #fafaf9);
+}
+.snitch-brand-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: calc(100% - var(--brand-strip-gutter) * 2);
+  max-width: 1568px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  border-inline-start: 1px solid var(--snitch-rule, #dcdcd7);
+}
+.snitch-brand-grid li { min-width: 0; border-inline-end: 1px solid var(--snitch-rule, #dcdcd7); }
+.snitch-brand-cell { display: flex; align-items: center; justify-content: center; height: 124px; padding: 16px 24px; transition: background-color 160ms ease; }
+.snitch-brand-cell:hover { background: #f0efeb; }
+.snitch-brand-cell:focus-visible { outline-offset: -5px; }
+.snitch-brand-logo { display: block; width: 150px; height: 48px; max-width: 100%; object-fit: contain; filter: grayscale(1) brightness(0); }
+.snitch-brand-cell--privy .snitch-brand-logo { width: 104px; }
+.snitch-brand-cell--the-graph .snitch-brand-logo { width: 156px; }
+.snitch-brand-cell--visa .snitch-brand-logo { min-width: 200px; width: 200px; height: 100px; max-width: none; }
+.snitch-brand-cell--blockchain .snitch-brand-logo { width: 174px; }
+@media (min-width: 744px) { .snitch-brand-strip { --brand-strip-gutter: 32px; } }
+@media (min-width: 1280px) { .snitch-brand-strip { --brand-strip-gutter: 64px; } }
+@media (min-width: 1440px) { .snitch-brand-strip { --brand-strip-gutter: 80px; } }
+@media (max-width: 1023px) {
+  .snitch-brand-cell { height: 108px; padding-inline: 16px; }
+}
+@media (max-width: 743px) {
+  .snitch-brand-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .snitch-brand-grid li { grid-column: span 2; }
+  .snitch-brand-grid li:nth-child(n+4) { grid-column: span 3; border-top: 1px solid var(--snitch-rule, #dcdcd7); }
+  .snitch-brand-cell { height: 88px; padding: 12px; }
+  .snitch-brand-cell--privy .snitch-brand-logo { width: 78px; }
+  .snitch-brand-cell--the-graph .snitch-brand-logo { width: 104px; }
+  .snitch-brand-cell--visa .snitch-brand-logo { min-width: 138px; width: 138px; height: 69px; max-width: none; }
+  .snitch-brand-cell--coinbase .snitch-brand-logo { width: 112px; }
+  .snitch-brand-cell--blockchain .snitch-brand-logo { width: 138px; }
+}
+@media (prefers-reduced-motion: reduce) { .snitch-brand-cell { transition: none; } }
