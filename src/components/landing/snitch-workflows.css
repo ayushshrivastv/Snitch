@@ -1,0 +1,235 @@
+.snitch-workflows { position: relative; padding: 48px 48px 52px; color: #171715; background: #fafaf9; scroll-margin-top: 104px; font-family: var(--neue-haas-grotesk-text-55-roman, Arial, sans-serif); }
+.snitch-workflows *, .snitch-workflows *::before, .snitch-workflows *::after { box-sizing: border-box; }
+.snitch-workflows__hash-anchor { position: absolute; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; scroll-margin-top: 104px; }
+.snitch-workflows__intro { max-width: 1000px; margin: 0 auto 24px; text-align: center; }
+.snitch-workflows__eyebrow { display: inline-flex; padding: 5px 10px; border: 1px dashed #b9b9b3; border-radius: 999px; color: #62625f; font: 11px/18px var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: .02em; text-transform: uppercase; }
+.snitch-workflows__intro h2 { margin: 16px 0 0; }
+.snitch-workflows__tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; margin: 0 auto 32px; padding: 5px; border: 1px solid #dcdcd7; border-radius: 999px; }
+.snitch-workflows__tabs button { min-height: 42px; padding: 11px 25px; border: 0; border-radius: 999px; background: transparent; color: #62625f; font: 12px/18px var(--neue-haas-grotesk-text-mono-55-roman, monospace); white-space: nowrap; cursor: pointer; transition: color 160ms, background 160ms; }
+.snitch-workflows__tabs button:hover { background: #eeeeeb; color: #171715; }
+.snitch-workflows__tabs button[aria-selected="true"] { background: #191918; color: #fafaf9; }
+.snitch-workflows :focus-visible { outline: 2px solid #7048d8; outline-offset: 4px; }
+/* The payment workflows share row heights; Treasury begins with its visuals. */
+.snitch-workflows__panels { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; row-gap: 22px; max-width: 1248px; margin-inline: auto; }
+.snitch-workflows__panel { display: grid; grid-template-rows: subgrid; grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
+.snitch-workflows__panel[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+.snitch-workflows__panel:first-child[aria-hidden="true"] { display: none; }
+.snitch-workflows__panels--treasury,
+.snitch-workflows__panels--treasury .snitch-workflows__panel { display: block; }
+.snitch-workflows__panels--treasury .snitch-workflows__panel[aria-hidden="true"] { display: none; }
+.snitch-workflows__editorial-rail { display: flex; justify-content: space-between; align-items: center; gap: 40px; padding: 2px 0 4px; }
+.snitch-workflows__editorial-rail > div { min-width: 0; max-width: 870px; }
+.snitch-workflows__editorial-rail h3 { margin: 0 0 8px; font: 400 31px/1.13 var(--tiempos-headline-light, Georgia, serif); letter-spacing: -.02em; }
+.snitch-workflows__editorial-rail p { max-width: 790px; margin: 0; color: #62625f; font-size: 15px; line-height: 1.55; }
+.snitch-workflows__editorial-rail > a { display: inline-flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 18px; min-height: 44px; padding: 11px 16px; border: 1px solid #babab3; border-radius: 999px; color: #171715; font: 11px/20px var(--neue-haas-grotesk-text-mono-55-roman, monospace); text-decoration: none; transition: background 160ms; }
+.snitch-workflows__editorial-rail > a:hover { background: #eaeae5; }
+.snitch-workflows__panorama { position: relative; min-width: 0; padding: 24px 12px 8px; }
+.snitch-workflows__journey { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .82fr) minmax(0, 1fr); gap: 42px; align-items: start; }
+.snitch-workflows__stage { position: relative; min-width: 0; }
+.snitch-workflows__stage:not(:last-child)::after { content: ''; position: absolute; top: 147px; left: calc(100% + 7px); width: 28px; border-top: 1px dashed #a29caa; }
+.snitch-workflows__stage:not(:last-child)::before { content: ''; position: absolute; z-index: 1; top: 144px; left: calc(100% + 28px); width: 7px; height: 7px; border-top: 1px solid #92869c; border-right: 1px solid #92869c; transform: rotate(45deg); }
+.snitch-workflows__stage h4 { margin: 0 0 8px; color: #66655d; font: 10px/16px var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: .06em; text-transform: uppercase; }
+.snitch-workflows__stage--1 h4, .snitch-workflows__stage--1 .snitch-workflows__stage-caption { text-align: center; }
+.snitch-workflows__artifact-slot { display: flex; align-items: center; min-width: 0; min-height: 254px; }
+.snitch-workflows__panorama--1 .snitch-workflows__artifact-slot,
+.snitch-workflows__panorama--2 .snitch-workflows__artifact-slot,
+.snitch-workflows__panorama--3 .snitch-workflows__artifact-slot { min-height: 286px; }
+.snitch-workflows__panorama--1 .snitch-workflows__stage:not(.snitch-workflows__stage--1) .snitch-workflows__artifact-slot,
+.snitch-workflows__panorama--2 .snitch-workflows__stage:not(.snitch-workflows__stage--1) .snitch-workflows__artifact-slot,
+.snitch-workflows__panorama--3 .snitch-workflows__stage:not(.snitch-workflows__stage--1) .snitch-workflows__artifact-slot { align-items: stretch; }
+.snitch-workflows__stage-caption { max-width: 310px; margin: 10px 0 0; color: #66665e; font-size: 12px; line-height: 18px; }
+.snitch-workflows__artifact { width: 100%; min-width: 0; padding: 18px; border: 1px solid #d3d1c9; border-radius: 6px; background: #fffefa; box-shadow: 0 7px 17px #37312608, 0 1px 2px #37312604; font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.snitch-workflows__artifact-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid #e8e6de; }
+.snitch-workflows__artifact-heading > span { display: flex; align-items: center; gap: 7px; color: #45443c; font-size: 11px; }
+.snitch-workflows__artifact-heading svg { flex-shrink: 0; color: #7c746d; }
+.snitch-workflows__artifact-heading small, .snitch-workflows__small-reference { color: #747166; font: 10px/15px var(--neue-haas-grotesk-text-mono-55-roman, monospace); white-space: nowrap; }
+.snitch-workflows__amount { margin: 19px 0; }
+.snitch-workflows__amount-label { display: block; margin-bottom: 4px; color: #706d64; font-size: 10px; line-height: 15px; }
+.snitch-workflows__amount > strong { display: block; color: #26251f; font-size: 29px; font-weight: 400; line-height: 1.2; letter-spacing: -.8px; white-space: nowrap; }
+.snitch-workflows__amount small { margin-left: 5px; color: #777267; font: 10px/15px var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: 0; }
+.snitch-workflows__details { display: grid; gap: 9px; margin: 0; }
+.snitch-workflows__details > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 10px; line-height: 15px; }
+.snitch-workflows__details dt { flex-shrink: 0; color: #767166; }
+.snitch-workflows__details dd { min-width: 0; margin: 0; color: #4e493f; text-align: right; }
+.snitch-workflows__artifact-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 17px; padding-top: 12px; border-top: 1px solid #e7e4db; color: #777064; font-size: 10px; line-height: 15px; }
+.snitch-workflows__artifact-foot strong { color: #4c473d; font-size: 11px; font-weight: 400; }
+.snitch-workflows__status { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 3px 6px; border: 1px solid #e4e1d8; border-radius: 4px; background: #f4f2ed; color: #70695f; font-size: 10px; line-height: 14px; white-space: nowrap; }
+.snitch-workflows__status--purple { border-color: #e2d8e9; background: #f5eff8; color: #785d88; }
+.snitch-workflows__status--green { border-color: #dce5d7; background: #f0f5ed; color: #5e7451; }
+.snitch-workflows__artifact--invoice { display: flex; flex-direction: column; }
+.snitch-workflows__artifact--invoice .snitch-workflows__artifact-foot { margin-top: auto; }
+.snitch-workflows__artifact--handoff { padding: 8px 0 10px; border: 0; background: transparent; box-shadow: none; text-align: center; }
+.snitch-workflows__wallet-orbit { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 13px; border: 1px solid #bdadc5; border-radius: 50%; background: radial-gradient(circle at 25% 25%, #faf7fc, #e9dfea); color: #785982; box-shadow: 0 0 0 7px #eee8ed, 0 0 0 8px #dcd3df; }
+.snitch-workflows__handoff-label { margin: 0; font-size: 12px; color: #4e4653; }
+.snitch-workflows__artifact--handoff .snitch-workflows__amount { margin: 15px 0 11px; }
+.snitch-workflows__artifact--handoff .snitch-workflows__amount > strong { font-size: 28px; }
+.snitch-workflows__handoff-meta, .snitch-workflows__payable-meta { display: grid; gap: 7px; width: min(100%, 210px); margin: 18px auto 0; padding-top: 13px; border-top: 1px solid #ded8df; text-align: left; }
+.snitch-workflows__handoff-meta > div, .snitch-workflows__payable-meta > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.snitch-workflows__handoff-meta span, .snitch-workflows__payable-meta span { color: #777064; font-size: 9px; }
+.snitch-workflows__handoff-meta strong, .snitch-workflows__payable-meta strong { color: #514a55; font-size: 9px; font-weight: 400; text-align: right; }
+.snitch-workflows__artifact--receipt { position: relative; display: flex; flex-direction: column; padding: 20px 19px 18px; background: #fff; }
+.snitch-workflows__receipt-heading { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+.snitch-workflows__receipt-heading > svg { grid-column: 1 / -1; color: #6f7c62; }
+.snitch-workflows__receipt-heading > span { font-size: 12px; color: #424139; }
+.snitch-workflows__receipt-heading > small { color: #79756b; font: 10px/14px var(--neue-haas-grotesk-text-mono-55-roman, monospace); }
+.snitch-workflows__artifact--receipt .snitch-workflows__amount { margin: 14px 0 18px; }
+.snitch-workflows__receipt-footer { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 11px; border-top: 1px dashed #d8d7cf; color: #63725a; font-size: 10px; line-height: 15px; }
+.snitch-workflows__receipt-perforation { position: absolute; left: 8px; right: 8px; bottom: -4px; height: 7px; background: radial-gradient(circle, #f2f1ec 2px, transparent 2.5px) 0 0 / 10px 7px repeat-x; }
+.snitch-workflows__receiver-list, .snitch-workflows__vendor-list, .snitch-workflows__access-list { margin: 3px 0 0; }
+.snitch-workflows__receiver-list > div { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto 12px; gap: 9px; align-items: center; padding: 13px 0; border-bottom: 1px solid #e9e6df; }
+.snitch-workflows__receiver-list > div:last-child, .snitch-workflows__vendor-list > div:last-child, .snitch-workflows__access-list > div:last-child { border-bottom: 0; }
+.snitch-workflows__avatar { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid #dfdcd2; border-radius: 50%; background: #f2eee7; color: #787163; font-size: 10px; }
+.snitch-workflows__receiver-list > div > span:nth-child(2), .snitch-workflows__vendor-list > div > span:first-child, .snitch-workflows__access-list > div > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.snitch-workflows__receiver-list strong, .snitch-workflows__vendor-list strong, .snitch-workflows__access-list strong { overflow: hidden; color: #4a453a; font-size: 11px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.snitch-workflows__receiver-list small, .snitch-workflows__vendor-list small, .snitch-workflows__access-list small { color: #777064; font-size: 10px; }
+.snitch-workflows__receiver-list svg { color: #7b896a; }
+.snitch-workflows__receiver-amount { display: flex; flex-direction: column; gap: 3px; color: #4c463b; font-size: 11px; text-align: right; white-space: nowrap; }
+.snitch-workflows__artifact--receivers .snitch-workflows__artifact-foot { margin-top: 0; }
+.snitch-workflows__review-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 19px 0; }
+.snitch-workflows__artifact h5 { margin: 0; color: #302c24; font: 400 22px/1.08 var(--tiempos-headline-light, Georgia, serif); letter-spacing: -.3px; }
+.snitch-workflows__review-rail { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e6e0d7; }
+.snitch-workflows__review-rail > div { display: flex; align-items: center; gap: 7px; }
+.snitch-workflows__review-rail > div > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.snitch-workflows__review-rail strong { font-size: 10px; color: #64576a; font-weight: 400; }
+.snitch-workflows__review-rail small { font-size: 10px; color: #7b736e; }
+.snitch-workflows__review-rail > svg { color: #b4a7ba; }
+.snitch-workflows__review-dot { display: grid; place-items: center; width: 15px; height: 15px; border: 1px solid #c5b4ce; border-radius: 50%; }
+.snitch-workflows__review-dot--done { color: #765b82; background: #eee5f2; }
+.snitch-workflows__vendor-list > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 14px 0; border-bottom: 1px solid #e9e6df; }
+.snitch-workflows__vendor-list .snitch-workflows__status { font-size: 10px; padding: 2px 4px; }
+.snitch-workflows__artifact--queue .snitch-workflows__artifact-foot { margin-top: 0; }
+.snitch-workflows__artifact--payable { max-width: 250px; margin-inline: auto; padding-inline: 12px; border: 0; background: transparent; box-shadow: none; text-align: center; }
+.snitch-workflows__document-icon { display: grid; place-items: center; width: 66px; height: 72px; margin: 0 auto 14px; border: 1px solid #cdbed4; border-radius: 7px; color: #856991; background: linear-gradient(145deg, #faf6fb, #eee4f1); box-shadow: 5px 5px 0 #e7dfe9, 0 0 0 7px #f2edf2; }
+.snitch-workflows__artifact--payable h5 { margin-top: 6px; font-size: 21px; }
+.snitch-workflows__artifact--payable .snitch-workflows__amount { margin: 14px 0; }
+.snitch-workflows__artifact--payable .snitch-workflows__amount strong { font-size: 26px; }
+.snitch-workflows__payable-meta { width: 100%; }
+.snitch-workflows__funds-identity { display: flex; align-items: center; gap: 9px; margin: 17px 0 0; }
+.snitch-workflows__funds-identity > div { display: flex; flex-direction: column; gap: 3px; }
+.snitch-workflows__funds-identity strong { font-size: 11px; font-weight: 400; color: #504a3f; }
+.snitch-workflows__funds-identity small { font-size: 10px; color: #776f63; }
+.snitch-workflows__artifact--funds .snitch-workflows__amount { margin: 24px 0; }
+.snitch-workflows__funds-rule { height: 4px; border-radius: 1px; background: linear-gradient(90deg, #9e819d 0 54.87%, #8771a3 54.87% 73.45%, #c3b7c6 73.45% 100%); }
+.snitch-workflows__artifact--funds .snitch-workflows__artifact-foot { border: 0; margin-top: 6px; }
+.snitch-workflows__artifact--allocation { padding: 0 7px; border: 0; background: transparent; box-shadow: none; }
+.snitch-workflows__allocation-ring { display: grid; place-items: center; width: 144px; height: 144px; margin: 0 auto 18px; border-radius: 50%; background: conic-gradient(#aa8d9f 0 54.87%, #8b76a5 54.87% 73.45%, #c5c1b8 73.45% 100%); box-shadow: 0 0 0 1px #f8f6f0, 0 0 0 5px #dedbd533; }
+.snitch-workflows__allocation-ring > span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 112px; height: 112px; border: 1px solid #f6f4ee; border-radius: 50%; color: #7e6b87; background: #f3f1ed; }
+.snitch-workflows__allocation-ring strong { color: #5b505f; font-size: 10px; line-height: 14px; font-weight: 400; }
+.snitch-workflows__allocation-ring small { color: #776c7b; font-size: 10px; }
+.snitch-workflows__allocation-legend { display: grid; gap: 7px; max-width: 192px; margin-inline: auto; }
+.snitch-workflows__allocation-legend > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; }
+.snitch-workflows__allocation-legend span { display: inline-flex; align-items: center; gap: 6px; color: #696158; }
+.snitch-workflows__allocation-legend i { width: 6px; height: 6px; background: #aa8d9f; border-radius: 1px; }
+.snitch-workflows__allocation-legend > div:nth-child(2) i { background: #8b76a5; }
+.snitch-workflows__allocation-legend > div:nth-child(3) i { background: #c5c1b8; }
+.snitch-workflows__allocation-legend strong { color: #655d52; font-size: 10px; font-weight: 400; }
+.snitch-workflows__artifact--access h5 { margin: 18px 0 8px; font-size: 22px; max-width: 210px; }
+.snitch-workflows__access-list > div { display: grid; grid-template-columns: 28px minmax(0, 1fr) 14px; align-items: center; gap: 9px; padding: 11px 0; border-bottom: 1px solid #e9e6df; }
+.snitch-workflows__access-mark { display: grid; place-items: center; width: 14px; height: 14px; border: 1px solid #d6cddd; border-radius: 3px; color: #907f9b; }
+@media (max-width: 1100px) {
+  .snitch-workflows { padding-inline: 28px; }
+  .snitch-workflows__panorama { padding-inline: 0; }
+  .snitch-workflows__journey { gap: 26px; }
+  .snitch-workflows__stage:not(:last-child)::after { left: calc(100% + 4px); width: 19px; }
+  .snitch-workflows__stage:not(:last-child)::before { left: calc(100% + 16px); }
+  .snitch-workflows__artifact { padding: 14px; }
+  .snitch-workflows__artifact--handoff, .snitch-workflows__artifact--allocation { padding-inline: 0; }
+  .snitch-workflows__artifact-heading { flex-wrap: wrap; gap: 5px; }
+  .snitch-workflows__amount > strong { font-size: 26px; }
+  .snitch-workflows__vendor-list > div { grid-template-columns: minmax(0, 1fr) auto; }
+  .snitch-workflows__vendor-list .snitch-workflows__status { display: none; }
+}
+@media (max-width: 800px) {
+  .snitch-workflows__editorial-rail { align-items: flex-start; gap: 22px; }
+  .snitch-workflows__editorial-rail h3 { font-size: 28px; }
+  .snitch-workflows__editorial-rail > a { gap: 10px; padding-inline: 12px; font-size: 10px; }
+  .snitch-workflows__journey { gap: 18px; }
+  .snitch-workflows__panorama { padding-inline: 0; }
+  .snitch-workflows__stage:not(:last-child)::after { left: calc(100% + 3px); width: 12px; }
+  .snitch-workflows__stage:not(:last-child)::before { left: calc(100% + 9px); }
+  .snitch-workflows__artifact-slot { min-height: 270px; }
+  .snitch-workflows__details > div { flex-wrap: wrap; gap: 2px 6px; }
+  .snitch-workflows__details dd { margin-left: auto; }
+  .snitch-workflows__artifact--handoff .snitch-workflows__amount > strong { font-size: 23px; }
+  .snitch-workflows__artifact--handoff .snitch-workflows__status { white-space: normal; }
+  .snitch-workflows__receiver-list > div { grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+  .snitch-workflows__receiver-list .snitch-workflows__avatar, .snitch-workflows__receiver-list svg { display: none; }
+  .snitch-workflows__allocation-ring { width: 124px; height: 124px; }
+  .snitch-workflows__allocation-ring > span { width: 96px; height: 96px; }
+  .snitch-workflows__review-title { align-items: flex-start; flex-direction: column; }
+  .snitch-workflows__review-rail { flex-wrap: wrap; }
+  .snitch-workflows__review-rail > svg { display: none; }
+}
+@media (max-width: 640px) {
+  .snitch-workflows { padding: 32px 20px 36px; }
+  .snitch-workflows__intro { margin-bottom: 18px; }
+  .snitch-workflows__intro h2 { font-size: clamp(32px, 7.2vw, 44px); line-height: 1.06; letter-spacing: -.035em; }
+  .snitch-workflows__tabs { margin-bottom: 22px; }
+  .snitch-workflows__tabs button { padding: 10px 13px; font-size: 10px; }
+  .snitch-workflows__panels { row-gap: 18px; }
+  .snitch-workflows__editorial-rail { flex-direction: column; gap: 12px; }
+  .snitch-workflows__editorial-rail h3 { font-size: 27px; }
+  .snitch-workflows__editorial-rail p { font-size: 14px; }
+  .snitch-workflows__panorama { padding: 18px 0 4px; }
+  .snitch-workflows__panorama--1 .snitch-workflows__artifact-slot,
+  .snitch-workflows__panorama--2 .snitch-workflows__artifact-slot,
+  .snitch-workflows__panorama--3 .snitch-workflows__artifact-slot { min-height: 0; }
+  .snitch-workflows__journey { grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 380px; margin-inline: auto; }
+  .snitch-workflows__stage h4 { text-align: center; margin-bottom: 6px; }
+  .snitch-workflows__stage-caption { display: none; }
+  .snitch-workflows__artifact-slot { min-height: 0; }
+  .snitch-workflows__stage:not(:last-child)::after { top: calc(100% + 5px); left: 50%; width: 0; height: 14px; border-top: 0; border-left: 1px dashed #a29caa; }
+  .snitch-workflows__stage:not(:last-child)::before { top: calc(100% + 13px); left: calc(50% - 3px); transform: rotate(135deg); }
+  .snitch-workflows__artifact { padding: 12px; }
+  .snitch-workflows__artifact-heading { flex-wrap: nowrap; padding-bottom: 8px; }
+  .snitch-workflows__amount { margin-block: 10px; }
+  .snitch-workflows__details { gap: 6px; }
+  .snitch-workflows__details > div { flex-wrap: nowrap; }
+  .snitch-workflows__artifact-foot { margin-top: 10px; padding-top: 8px; }
+  .snitch-workflows__artifact--handoff { display: grid; grid-template-columns: 58px minmax(0, 1fr); column-gap: 19px; row-gap: 4px; padding: 12px 4px; text-align: left; }
+  .snitch-workflows__wallet-orbit { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 50px; height: 50px; margin: 0 4px; box-shadow: 0 0 0 5px #eee8ed, 0 0 0 6px #dcd3df; }
+  .snitch-workflows__handoff-label { grid-column: 2; grid-row: 1; }
+  .snitch-workflows__artifact--handoff > .snitch-workflows__status { grid-column: 2; grid-row: 3; justify-self: start; }
+  .snitch-workflows__handoff-route { display: none; }
+  .snitch-workflows__artifact--handoff .snitch-workflows__amount { grid-column: 2; grid-row: 2; margin: 0; }
+  .snitch-workflows__artifact--handoff .snitch-workflows__amount > strong { font-size: 27px; }
+  .snitch-workflows__receipt-heading { grid-template-columns: 19px 1fr auto; }
+  .snitch-workflows__receipt-heading > svg { grid-column: auto; }
+  .snitch-workflows__artifact--receipt .snitch-workflows__amount { margin-block: 10px; }
+  .snitch-workflows__receipt-footer { margin-top: 10px; padding-top: 8px; }
+  .snitch-workflows__receiver-list > div { grid-template-columns: 28px minmax(0, 1fr) auto 12px; padding-block: 7px; }
+  .snitch-workflows__receiver-list .snitch-workflows__avatar, .snitch-workflows__receiver-list svg { display: grid; }
+  .snitch-workflows__vendor-list > div { grid-template-columns: minmax(0, 1fr) auto auto; padding-block: 8px; }
+  .snitch-workflows__vendor-list .snitch-workflows__status { display: inline-flex; }
+  .snitch-workflows__review-title { align-items: center; flex-direction: row; margin-block: 12px; }
+  .snitch-workflows__review-rail { margin-top: 12px; padding-top: 9px; }
+  .snitch-workflows__review-rail > svg { display: block; }
+  .snitch-workflows__artifact--payable { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 15px; max-width: none; padding: 12px; text-align: left; }
+  .snitch-workflows__document-icon { grid-column: 1; grid-row: 1 / span 4; align-self: center; width: 40px; height: 44px; margin: 0; }
+  .snitch-workflows__artifact--payable .snitch-workflows__small-reference { grid-column: 2; grid-row: 1; }
+  .snitch-workflows__artifact--payable h5 { grid-column: 2; grid-row: 2; margin: 0; }
+  .snitch-workflows__artifact--payable .snitch-workflows__amount { grid-column: 2; grid-row: 3; margin: 2px 0; }
+  .snitch-workflows__artifact--payable > .snitch-workflows__status { grid-column: 2; grid-row: 4; justify-self: start; }
+  .snitch-workflows__payable-meta { grid-column: 1 / -1; margin-top: 9px; }
+  .snitch-workflows__artifact--allocation { display: grid; grid-template-columns: 122px minmax(0, 1fr); align-items: center; gap: 18px; padding: 8px 0; }
+  .snitch-workflows__allocation-ring { width: 122px; height: 122px; margin: 0; }
+  .snitch-workflows__allocation-legend { gap: 11px; width: 100%; }
+  .snitch-workflows__funds-identity { margin-top: 12px; }
+  .snitch-workflows__artifact--funds .snitch-workflows__amount { margin: 15px 0; }
+  .snitch-workflows__artifact--access h5 { margin: 12px 0 6px; max-width: none; }
+  .snitch-workflows__access-list > div { padding-block: 7px; }
+}
+@media (max-width: 410px) {
+  .snitch-workflows__tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; border-radius: 16px; }
+  .snitch-workflows__tabs button { border-radius: 11px; font-size: 11px; }
+  .snitch-workflows__panorama { padding-inline: 0; }
+  .snitch-workflows__artifact { padding: 12px; }
+  .snitch-workflows__receipt-heading { column-gap: 7px; }
+  .snitch-workflows__receipt-heading > span { font-size: 11px; }
+  .snitch-workflows__vendor-list > div { gap: 6px; }
+  .snitch-workflows__artifact--handoff { padding: 12px 4px; }
+  .snitch-workflows__artifact--allocation { padding-inline: 0; grid-template-columns: 116px minmax(0, 1fr); gap: 14px; }
+  .snitch-workflows__allocation-ring { width: 116px; height: 116px; }
+  .snitch-workflows__allocation-ring > span { width: 90px; height: 90px; }
+}
+@media (prefers-reduced-motion: reduce) { .snitch-workflows * { transition: none !important; } }
