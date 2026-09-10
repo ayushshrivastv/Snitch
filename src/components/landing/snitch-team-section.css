@@ -1,0 +1,109 @@
+.snitch-team-section { padding: 64px 48px 60px; border-top: 1px solid #deded7; color: #26222b; background: #f1f1ed; font-family: var(--neue-haas-grotesk-text-55-roman, Arial), sans-serif; }
+.snitch-team-section *, .snitch-team-section *::before, .snitch-team-section *::after { box-sizing: border-box; }
+.snitch-team-section__inner { max-width: 1200px; margin-inline: auto; }
+.snitch-team-section__intro { text-align: center; }
+.snitch-team-section__intro h2 { margin: 22px 0 17px; font: 400 clamp(36px, 4.3vw, 54px)/1.08 var(--tiempos-headline-light, Georgia), serif; letter-spacing: -.035em; text-wrap: balance; }
+.snitch-team-section__intro > p { margin: 0 auto; color: #6a6570; font-size: 16px; line-height: 1.6; max-width: 690px; }
+.snitch-authority-map { margin-top: 25px; }
+.snitch-authority-map__canvas { position: relative; max-width: 1120px; height: 334px; margin: 0 auto; }
+.snitch-authority-map__grid { position: absolute; inset: 0; background-image: linear-gradient(#c9c5cf44 1px, transparent 1px), linear-gradient(90deg, #c9c5cf44 1px, transparent 1px); background-size: 24px 24px; mask-image: radial-gradient(ellipse at 50% 38%, #000 15%, transparent 72%); pointer-events: none; }
+.snitch-authority-map__orbit { position: absolute; left: 50%; top: -7px; width: 314px; height: 314px; transform: translateX(-50%); border: 1px solid #d6d0de; border-radius: 50%; background: radial-gradient(ellipse, #e2d9f257, transparent 65%); pointer-events: none; }
+.snitch-authority-map__orbit::before { content: ""; position: absolute; inset: 28px; border: 1px dashed #d9d3e0; border-radius: 50%; }
+.snitch-authority-map__annotation, .snitch-authority-map__example { position: absolute; top: 14px; color: #6b5b76; font: 9px/1.4 var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: .04em; text-transform: uppercase; }
+.snitch-authority-map__annotation { left: 0; }
+.snitch-authority-map__example { right: 0; }
+.snitch-authority-map__connections { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; pointer-events: none; }
+.snitch-authority-map__connections path { stroke: #c6c0ce; stroke-width: 1; vector-effect: non-scaling-stroke; transition: stroke 180ms ease; }
+.snitch-authority-map__connections path.is-active { stroke: #8c6aad; stroke-width: 1.5; }
+.snitch-authority-map__connections circle { fill: #f1f1ed; stroke: #aaa0b6; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.snitch-authority-map__wallet { position: absolute; z-index: 1; left: 33.5%; top: 42px; width: 33%; overflow: hidden; border: 1px solid #48404f; border-radius: 11px; color: #fafaf9; background: #27232d; box-shadow: 0 18px 34px -20px #45354f66, 0 2px 6px #20182415; }
+.snitch-authority-map__wallet::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 2px; background: linear-gradient(90deg,#e34850,#7048d8); }
+.snitch-authority-map__identity { display: flex; align-items: center; min-height: 103px; gap: 13px; padding: 23px 22px; }
+.snitch-authority-map__wallet-icon { display: grid; place-items: center; flex-shrink: 0; height: 45px; width: 45px; border: 1px solid #615469; border-radius: 10px; color: #d5c4e5; background: #3a3143; }
+.snitch-authority-map__identity > div { display: grid; gap: 8px; min-width: 0; }
+.snitch-authority-map__identity > div > span { color: #c3b8ce; font-size: 11px; }
+.snitch-authority-map__identity strong { font-size: 20px; font-weight: 500; line-height: 1.2; letter-spacing: -.02em; white-space: nowrap; }
+.snitch-authority-map__identity > svg { margin-left: auto; flex-shrink: 0; color: #c0b1cd; }
+.snitch-authority-map__provider { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #48404f; min-height: 46px; padding: 12px 22px; color: #c9c1d1; font-size: 10px; }
+.snitch-authority-map__provider img { width: 53px; height: auto; filter: brightness(0) invert(1); opacity: .9; }
+.snitch-authority-map__roles { position: absolute; inset: 0; }
+.snitch-authority-map__role { position: absolute; display: flex; align-items: center; gap: 13px; width: 24%; min-height: 110px; padding: 22px 20px; border: 1px solid #d9d4de; border-radius: 9px; background: #fcfcfa; color: #46404e; box-shadow: 0 6px 12px -10px #40354830; cursor: pointer; transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
+.snitch-authority-map__role--0 { left: 0; top: 66px; }
+.snitch-authority-map__role--1 { right: 0; top: 66px; }
+.snitch-authority-map__role--2 { left: 38%; top: 224px; min-height: 94px; }
+.snitch-authority-map__role:hover { border-color: #bca8ce; background: #f9f6fc; }
+.snitch-authority-map__role[aria-selected="true"] { border-color: #a183bd; background: #f5f0fa; box-shadow: 0 8px 16px -12px #68447d70; }
+.snitch-authority-map__avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e2dce7; border-radius: 50%; background: #efedf1; color: #71667e; font: 9px var(--neue-haas-grotesk-text-mono-55-roman, monospace); }
+.snitch-authority-map__role[aria-selected="true"] .snitch-authority-map__avatar { background: #e8dcf1; border-color: #d5c3e4; color: #64447f; }
+.snitch-authority-map__role-copy { display: grid; gap: 8px; min-width: 0; text-align: left; }
+.snitch-authority-map__role-copy strong { font-size: 16px; font-weight: 500; }
+.snitch-authority-map__role-copy > span { color: #786e81; font-size: 11px; line-height: 1.4; }
+.snitch-authority-map__selected { display: grid; place-items: center; margin-left: auto; width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; color: #9b8da8; }
+.snitch-authority-map__role[aria-selected="true"] .snitch-authority-map__selected { background: #e9ddf2; color: #79538d; }
+.snitch-authority-map__inspector { display: grid; border-block: 1px solid #d7d2dc; }
+.snitch-authority-map__panel { grid-area: 1/1; display: grid; grid-template-columns: .95fr 1.4fr; align-items: center; gap: 45px; padding: 22px 0; min-width: 0; }
+.snitch-authority-map__panel[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+.snitch-authority-map__role-description > span { color: #776284; font: 9px/1.5 var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: .04em; text-transform: uppercase; }
+.snitch-authority-map__role-description p { margin: 9px 0 0; max-width: 390px; color: #635b6b; font-size: 13px; line-height: 1.6; }
+.snitch-authority-map__capabilities { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.snitch-authority-map__capabilities > div { display: grid; grid-template-columns: auto 1fr; column-gap: 9px; row-gap: 8px; padding: 4px 19px; border-left: 1px solid #dad4df; color: #5c4f66; font-size: 12px; }
+.snitch-authority-map__capabilities > div > svg { grid-row: 1 / span 2; margin-top: 1px; color: #8d719e; }
+.snitch-authority-map__capabilities small { grid-column: 2; display: flex; gap: 4px; align-items: center; color: #786183; font-size: 10px; }
+.snitch-authority-map__capabilities > div[data-allowed="false"] { color: #6f6275; }
+.snitch-authority-map__capabilities > div[data-allowed="false"] > svg, .snitch-authority-map__capabilities > div[data-allowed="false"] small { color: #6f6275; }
+.snitch-authority-map__foot { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding-top: 15px; }
+.snitch-authority-map__foot p { margin: 0; color: #6c6274; font-size: 11px; }
+.snitch-authority-map__foot a { display: inline-flex; align-items: center; gap: 12px; min-height: 40px; color: #4a395a; font-size: 13px; text-decoration: none; }
+.snitch-authority-map__foot a:hover { text-decoration: underline; text-underline-offset: 5px; }
+.dune-clone .snitch-team-section :focus-visible { outline: 2px solid #7048d8; outline-offset: 4px; }
+.dune-clone .snitch-authority-map__panel:focus-visible { outline-offset: -4px; }
+@media (max-width: 1100px) and (min-width: 801px) {
+  .snitch-authority-map__identity { padding-inline: 16px; gap: 9px; }
+  .snitch-authority-map__identity strong { font-size: 16px; }
+  .snitch-authority-map__wallet-icon { width: 35px; height: 38px; }
+  .snitch-authority-map__identity > svg { display: none; }
+  .snitch-authority-map__role { padding-inline: 12px; gap: 9px; }
+  .snitch-authority-map__role-copy strong { font-size: 14px; }
+  .snitch-authority-map__selected { display: none; }
+  .snitch-authority-map__panel { gap: 25px; }
+  .snitch-authority-map__capabilities > div { padding-inline: 11px; font-size: 11px; }
+}
+@media (max-width: 800px) {
+  .snitch-team-section { padding: 56px 28px 48px; }
+  .snitch-team-section__inner { max-width: 650px; }
+  .snitch-team-section__intro h2 { font-size: 42px; }
+  .snitch-authority-map__canvas { display: flex; flex-direction: column; align-items: center; height: auto; padding: 42px 0 22px; }
+  .snitch-authority-map__wallet { position: relative; left: auto; top: auto; width: min(360px,100%); }
+  .snitch-authority-map__connections { display: none; }
+  .snitch-authority-map__roles { position: relative; inset: auto; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; width: 100%; padding-top: 28px; }
+  .snitch-authority-map__roles::before { content: ""; position: absolute; height: 1px; background: #c4b5d0; left: calc(16.6667% - 4px); right: calc(16.6667% - 4px); top: 14px; }
+  .snitch-authority-map__roles::after { content: ""; position: absolute; width: 1px; height: 14px; background: #c4b5d0; left: 50%; top: 0; }
+  .snitch-authority-map__role { position: relative; top: auto; left: auto; right: auto; width: 100%; min-height: 96px; flex-direction: column; justify-content: center; gap: 8px; padding: 13px 8px; }
+  .snitch-authority-map__role::before { content: ""; position: absolute; width: 1px; height: 14px; background: #c4b5d0; left: 50%; top: -15px; }
+  .snitch-authority-map__role[aria-selected="true"]::before { background: #8c6aad; }
+  .snitch-authority-map__role-copy { text-align: center; gap: 5px; }
+  .snitch-authority-map__role-copy strong { font-size: 13px; }
+  .snitch-authority-map__role-copy > span { font-size: 10px; }
+  .snitch-authority-map__avatar { width: 28px; height: 28px; font-size: 8px; }
+  .snitch-authority-map__selected { display: none; }
+  .snitch-authority-map__orbit { top: 0; width: 280px; height: 280px; }
+  .snitch-authority-map__panel { grid-template-columns: 1fr; gap: 21px; padding-block: 21px; }
+  .snitch-authority-map__role-description p { max-width: none; }
+  .snitch-authority-map__capabilities > div { padding: 3px 13px; font-size: 11px; }
+  .snitch-authority-map__capabilities > div:first-child { padding-left: 0; border-left: 0; }
+}
+@media (max-width: 480px) {
+  .snitch-team-section { padding: 48px 20px 40px; }
+  .snitch-team-section__intro h2 { font-size: 37px; }
+  .snitch-team-section__intro > p { font-size: 15px; }
+  .snitch-team-section__break { display: none; }
+  .snitch-authority-map { margin-top: 22px; }
+  .snitch-authority-map__identity { padding-inline: 18px; gap: 11px; }
+  .snitch-authority-map__identity strong { font-size: 19px; }
+  .snitch-authority-map__roles { gap: 8px; }
+  .snitch-authority-map__roles::before { left: calc(16.6667% - 2.6667px); right: calc(16.6667% - 2.6667px); }
+  .snitch-authority-map__capabilities > div { display: flex; flex-direction: column; gap: 7px; padding: 3px 9px; font-size: 10px; }
+  .snitch-authority-map__capabilities small { font-size: 9px; }
+  .snitch-authority-map__foot { align-items: flex-start; flex-direction: column; gap: 4px; padding-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .snitch-team-section *, .snitch-team-section *::before, .snitch-team-section *::after { transition: none !important; } }
