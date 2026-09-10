@@ -1,0 +1,190 @@
+.snitch-search-overlay {
+  --snitch-search-background: #fafaf9;
+  --snitch-search-text: #0f0f0e;
+  --snitch-search-muted: #686662;
+  --snitch-search-border: #e2dfdb;
+  --snitch-search-accent: #7048d8;
+  position: fixed;
+  inset: 0;
+  z-index: 2002;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: min(10vh, 80px) 20px 24px;
+  background: rgb(23 13 32 / 34%);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  color: var(--snitch-search-text);
+  font-family: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.45;
+  color-scheme: light;
+}
+
+.snitch-search-overlay *,
+.snitch-search-overlay *::before,
+.snitch-search-overlay *::after { box-sizing: border-box; }
+
+.snitch-search-overlay .snitch-search {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  max-height: calc(100dvh - 112px);
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 22px;
+  background: var(--snitch-search-background);
+  box-shadow: 0 24px 80px rgb(23 13 32 / 20%);
+}
+
+.snitch-search .snitch-search__heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 10px;
+}
+
+.snitch-search .snitch-search__heading h2 {
+  margin: 0;
+  font: 600 18px/1.4 var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: -0.3px;
+}
+
+.snitch-search .snitch-search__close {
+  display: flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--snitch-search-muted);
+  cursor: pointer;
+}
+
+.snitch-search .snitch-search__close:hover { background: #eeece9; color: var(--snitch-search-text); }
+
+.snitch-search .snitch-search__form { flex: 0 0 auto; margin: 0; padding: 0 22px 18px; }
+.snitch-search .snitch-search__input-label { display: block; margin-bottom: 7px; color: var(--snitch-search-muted); font-size: 12px; }
+.snitch-search .snitch-search__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--snitch-search-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--snitch-search-muted);
+}
+.snitch-search .snitch-search__input-wrap > svg { flex-shrink: 0; }
+.snitch-search .snitch-search__input-wrap:focus-within { border-color: var(--snitch-search-accent); outline: 2px solid rgb(112 72 216 / 20%); outline-offset: 2px; }
+.snitch-search .snitch-search__input-wrap input {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--snitch-search-text);
+  font: inherit;
+  font-size: 16px;
+}
+.snitch-search .snitch-search__input-wrap input::placeholder { color: #85807b; opacity: 1; }
+
+.snitch-search .snitch-search__results-heading {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 22px;
+  padding: 0 0 8px;
+  color: var(--snitch-search-muted);
+  font-size: 12px;
+}
+.snitch-search .snitch-search__results {
+  min-height: 100px;
+  margin: 0;
+  padding: 0 10px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.snitch-search .snitch-search__results li { margin: 0; padding: 0; }
+.snitch-search .snitch-search__result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--snitch-search-text);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+.snitch-search .snitch-search__result:hover { background: #f0edf6; }
+.snitch-search .snitch-search__result-copy { display: grid; min-width: 0; gap: 2px; }
+.snitch-search .snitch-search__result-title { font-size: 14px; font-weight: 600; }
+.snitch-search .snitch-search__result-description { color: var(--snitch-search-muted); font-size: 12px; line-height: 1.45; }
+.snitch-search .snitch-search__result > svg { flex-shrink: 0; color: var(--snitch-search-muted); }
+.snitch-search .snitch-search__results .snitch-search__empty { padding: 22px 12px 30px; }
+.snitch-search .snitch-search__empty p { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.snitch-search .snitch-search__empty span { color: var(--snitch-search-muted); font-size: 13px; }
+.snitch-search .snitch-search__footer {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--snitch-search-border);
+  color: var(--snitch-search-muted);
+  font-size: 11px;
+}
+.snitch-search .snitch-search__footer kbd {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 4px;
+  border: 1px solid var(--snitch-search-border);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+}
+.snitch-search .snitch-search__close:focus-visible,
+.snitch-search .snitch-search__result:focus-visible { outline: 2px solid var(--snitch-search-accent); outline-offset: -2px; }
+.snitch-search .snitch-search__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .snitch-search-overlay { padding: 48px 14px 16px; }
+  .snitch-search-overlay .snitch-search { max-height: calc(100dvh - 64px); border-radius: 18px; }
+  .snitch-search .snitch-search__heading { padding: 14px 16px 10px; }
+  .snitch-search .snitch-search__form { padding: 0 16px 16px; }
+  .snitch-search .snitch-search__results-heading { margin-inline: 16px; }
+  .snitch-search .snitch-search__results { padding-inline: 6px; }
+  .snitch-search .snitch-search__footer { padding-inline: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snitch-search .snitch-search__result { transition: none; }
+}
