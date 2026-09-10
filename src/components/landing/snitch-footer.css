@@ -1,0 +1,73 @@
+.snitch-company-footer {
+  --footer-surface: #fafaf9; --footer-ink: #29242f; --footer-muted: #726b7a; --footer-rule: #dcd6e3;
+  position: relative; isolation: isolate; overflow: clip; color: var(--footer-ink);
+  background: linear-gradient(180deg, #f5f3f8 0%, #f8f7fa 56%, #fafaf9 100%);
+  font-family: var(--neue-haas-grotesk-text-55-roman, Arial, sans-serif);
+}
+.snitch-company-footer *, .snitch-company-footer *::before, .snitch-company-footer *::after { box-sizing: border-box; }
+.snitch-company-footer__atmosphere { position: absolute; z-index: -1; inset: 0; background: radial-gradient(ellipse at 4% 55%, #e3485007, transparent 55%), radial-gradient(ellipse at 82% 30%, #7048d80b, transparent 65%); mask-image: linear-gradient(transparent, #000 30%, #000 68%, transparent); pointer-events: none; }
+.snitch-company-footer__wordmark { position: absolute; z-index: -1; right: max(28px, calc((100vw - 1240px) / 2)); bottom: -49px; color: #ded8e7; background: linear-gradient(180deg, #d9d2e2 0%, #e5e0ec 38%, #fafaf900 92%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-family: var(--neue-haas-grotesk-display-55-roman, Arial, sans-serif); font-size: clamp(180px, 20vw, 290px); line-height: .95; letter-spacing: -.075em; opacity: .56; pointer-events: none; user-select: none; }
+.snitch-company-footer__inner { position: relative; max-width: 1328px; margin-inline: auto; padding-inline: 64px; }
+.snitch-company-footer a { color: inherit; text-decoration: none; }
+.snitch-company-footer__main { display: grid; grid-template-columns: 1fr 1.75fr; gap: 96px; padding: 54px 0 50px; }
+.snitch-company-footer__identity { min-width: 0; }
+.snitch-company-footer__brand { display: inline-flex; align-items: center; gap: 11px; min-height: 44px; margin: 0; padding: 0; border: 0; background: transparent; color: var(--footer-ink); cursor: pointer; }
+.snitch-company-footer__brand img { display: block; width: 40px; height: 40px; object-fit: contain; }
+.snitch-company-footer__brand > span { font-family: var(--neue-haas-grotesk-display-55-roman, Arial, sans-serif); font-size: 32px; line-height: 1; letter-spacing: -.9px; }
+.snitch-company-footer__identity > p { max-width: 310px; margin: 17px 0 23px; color: #68616e; font-size: 14px; line-height: 1.7; }
+.snitch-company-footer__workspace { display: inline-flex; align-items: center; justify-content: space-between; gap: 22px; min-height: 50px; padding: 6px 7px 6px 19px; border: 1px solid #fff; border-radius: 999px; background: linear-gradient(180deg, #ffffffef, #faf9fce6); color: #3d3349 !important; box-shadow: 0 1px 3px #3426430a, 0 4px 12px #40305006, inset 0 0 0 1px #44305509; font: 11px/1.5 var(--neue-haas-grotesk-text-mono-55-roman, monospace); white-space: nowrap; transition: box-shadow 200ms ease, border-color 200ms ease; }
+.snitch-company-footer__workspace > span { display: grid; width: 35px; height: 35px; flex-shrink: 0; place-items: center; border: 1px solid #e4deeb; border-radius: 50%; background: #eeebf3; color: #6a547d; transition: transform 200ms ease, background 200ms ease; }
+.snitch-company-footer__workspace:hover { border-color: #e5ddee; box-shadow: 0 2px 5px #3426430a, 0 6px 20px #7048d813; }
+.snitch-company-footer__workspace:hover > span { transform: translateX(2px); background: #e9e0f2; }
+.snitch-company-footer__navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 36px; padding-top: 10px; }
+.snitch-company-footer__group { min-width: 0; scroll-margin-top: 112px; }
+.snitch-company-footer__group h3 { margin: 0 0 16px; color: #6e607a; font: 10px/1.5 var(--neue-haas-grotesk-text-mono-55-roman, monospace); letter-spacing: .075em; text-transform: uppercase; }
+.snitch-company-footer__group ul { display: grid; margin: 0; padding: 0; list-style: none; }
+.snitch-company-footer__group li { min-width: 0; }
+.snitch-company-footer__group a { position: relative; display: inline-flex; align-items: center; min-height: 42px; padding-block: 8px; color: #514859; font-size: 14px; line-height: 1.4; transition: color 200ms ease; }
+.snitch-company-footer__group a::after { content: ""; position: absolute; bottom: 7px; inset-inline: 0; height: 1px; background: linear-gradient(90deg, #8c69b6, #c49cc1 76%, transparent); opacity: 0; transform: scaleX(.6); transform-origin: left; transition: opacity 200ms ease, transform 200ms ease; }
+.snitch-company-footer__group a:hover { color: #5f397f; }
+.snitch-company-footer__group a:hover::after { opacity: .8; transform: scaleX(1); }
+.snitch-company-footer__bottom { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 80px; padding: 16px 0; }
+.snitch-company-footer__bottom::before { content: ""; position: absolute; inset: 0 0 auto; height: 1px; background: linear-gradient(90deg, #dcd6e3, #dcd6e3b3 70%, transparent); }
+.snitch-company-footer__bottom p { margin: 0; color: #6e607a; font-size: 11px; line-height: 1.6; }
+.snitch-company-footer__bottom button { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; padding: 0; border: 0; background: transparent; color: #6e607a; font-size: 11px; line-height: 1.5; cursor: pointer; }
+.snitch-company-footer__bottom button > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #ddd5e4; border-radius: 50%; background: #fafaf966; transition: background 200ms ease, border-color 200ms ease; }
+.snitch-company-footer__bottom button:hover > span { background: #eee7f4; border-color: #cdbddd; }
+.dune-clone .snitch-company-footer :focus-visible { outline: 2px solid #7048d8; outline-offset: 5px; border-radius: 3px; }
+.dune-clone .snitch-company-footer__workspace:focus-visible { border-radius: 999px; }
+@media (max-width: 1100px) {
+  .snitch-company-footer__inner { padding-inline: 36px; }
+  .snitch-company-footer__main { grid-template-columns: .95fr 1.65fr; gap: 48px; padding-block: 48px; }
+  .snitch-company-footer__navigation { gap: 22px; }
+  .snitch-company-footer__group a { font-size: 13px; }
+}
+@media (max-width: 850px) {
+  .snitch-company-footer__main { grid-template-columns: 1fr; gap: 32px; padding-block: 40px; }
+  .snitch-company-footer__identity > p { max-width: 340px; margin: 15px 0 20px; }
+  .snitch-company-footer__navigation { gap: 24px; padding-top: 0; }
+  .snitch-company-footer__group a { font-size: 14px; }
+  .snitch-company-footer__wordmark { font-size: 220px; bottom: -33px; right: 28px; opacity: .4; }
+}
+@media (max-width: 600px) {
+  .snitch-company-footer__inner { padding-inline: 24px; }
+  .snitch-company-footer__main { gap: 30px; padding-block: 34px; }
+  .snitch-company-footer__brand > span { font-size: 30px; }
+  .snitch-company-footer__identity > p { max-width: 280px; font-size: 14px; }
+  .snitch-company-footer__navigation { gap: 16px; }
+  .snitch-company-footer__group h3 { margin-bottom: 10px; font-size: 10px; }
+  .snitch-company-footer__group a { min-height: 44px; font-size: 12px; }
+  .snitch-company-footer__bottom { gap: 16px; padding-block: 16px; }
+  .snitch-company-footer__bottom p { max-width: 182px; font-size: 10px; }
+  .snitch-company-footer__bottom button { flex-shrink: 0; gap: 8px; font-size: 10px; }
+  .snitch-company-footer__bottom button > span { width: 30px; height: 30px; }
+  .snitch-company-footer__wordmark { font-size: 158px; right: 23px; bottom: -18px; opacity: .34; }
+}
+@media (max-width: 360px) {
+  .snitch-company-footer__inner { padding-inline: 20px; }
+  .snitch-company-footer__navigation { gap: 12px; }
+  .snitch-company-footer__bottom p { max-width: 152px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snitch-company-footer *, .snitch-company-footer *::before, .snitch-company-footer *::after { transition: none !important; }
+}
