@@ -21,6 +21,18 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
+function formatEmailDate(value: string) {
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 function slugifyPath(value: string) {
   return (
     value
@@ -117,41 +129,130 @@ export async function POST(request: Request) {
   const amount = `${storedInvoice.amount} ${storedInvoice.currency}`;
   const customerName = storedInvoice.customerName;
   const description = storedInvoice.title;
+  const memo = storedInvoice.memo || description;
+  const dueDate = formatEmailDate(storedInvoice.dueDate);
 
   const paymentLink = paymentUrl.toString();
+  const logoUrl = new URL("/snitch-logo.png", origin).toString();
 
   const html = `
-    <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111827;max-width:560px;margin:0 auto;padding:32px 20px;">
-      <p style="font-size:14px;color:#6b7280;margin:0 0 16px;">${escapeHtml(accountName)}</p>
-      <h1 style="font-size:24px;line-height:1.2;margin:0 0 16px;font-weight:600;">Invoice ${escapeHtml(invoiceId)}</h1>
-      <p style="font-size:16px;margin:0 0 18px;">Hi ${escapeHtml(customerName)},</p>
-      <p style="font-size:16px;margin:0 0 18px;">
-        ${escapeHtml(accountName)} sent you an Ethereum Sepolia testnet invoice for <strong>${escapeHtml(amount)}</strong>.
-        You can review the invoice and its status using the link below.
-      </p>
-      <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:20px 0;background:#fafafa;">
-        <p style="font-size:13px;color:#6b7280;margin:0 0 6px;">Invoice details</p>
-        <p style="font-size:15px;margin:0;">${escapeHtml(description)}</p>
-      </div>
-      <a href="${escapeHtml(paymentLink)}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:600;">
-        View invoice
-      </a>
-      <p style="font-size:13px;color:#6b7280;margin:22px 0 0;">
-        ${storedInvoice.treasury ? "Use Sepolia test ETH to pay this invoice. This is a testnet payment." : "Payments are unavailable until a merchant treasury is configured for a new invoice."}
-      </p>
-    </div>
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
+        <style>
+          @media only screen and (max-width: 640px) {
+            .email-shell { width: 100% !important; }
+            .email-pad { padding-left: 20px !important; padding-right: 20px !important; }
+            .invoice-card { padding: 28px 24px !important; }
+            .amount { font-size: 42px !important; }
+          }
+        </style>
+      </head>
+      <body style="margin:0;padding:0;background:#f5f3f8;color:#17191d;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;">A payment request for ${escapeHtml(amount)} from ${escapeHtml(accountName)} is ready.</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f5f3f8;border-collapse:collapse;">
+          <tr>
+            <td align="center" style="padding:32px 12px;">
+              <table role="presentation" class="email-shell" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;">
+                <tr>
+                  <td class="email-pad" style="padding:34px 42px 30px;background:#ffffff;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                      <tr>
+                        <td style="font-size:15px;font-weight:700;color:#17191d;">
+                          <img src="${escapeHtml(logoUrl)}" width="34" height="34" alt="Snitch" style="display:inline-block;width:34px;height:34px;margin-right:10px;vertical-align:middle;">
+                          <span style="vertical-align:middle;">Snitch</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <h1 style="margin:30px 0 10px;font-size:28px;line-height:1.25;letter-spacing:-0.4px;color:#24272d;font-weight:700;">New invoice from ${escapeHtml(accountName)}</h1>
+                    <p style="margin:0;font-size:16px;line-height:1.5;color:#6b7078;"><strong style="color:#3d424a;">to:</strong> ${escapeHtml(customerEmail)}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="email-pad" style="padding:42px;background:#7048d8;background-image:linear-gradient(135deg,#e34850 0%,#7048d8 100%);border-top:1px solid #d5c3e3;">
+                    <p style="margin:0 0 24px;font-size:17px;line-height:1.4;color:#ffffff;font-weight:700;">
+                      <img src="${escapeHtml(logoUrl)}" width="40" height="40" alt="" style="display:inline-block;width:40px;height:40px;margin-right:10px;vertical-align:middle;">
+                      ${escapeHtml(accountName)}
+                    </p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dce5e4;border-radius:16px;">
+                      <tr>
+                        <td class="invoice-card" style="padding:34px 36px;">
+                          <p style="margin:0 0 4px;font-size:16px;line-height:1.5;color:#70757c;">Invoice from ${escapeHtml(accountName)}</p>
+                          <p class="amount" style="margin:0;font-size:48px;line-height:1.12;letter-spacing:-1.4px;color:#17191d;font-weight:700;">${escapeHtml(amount)}</p>
+                          <p style="margin:10px 0 0;font-size:16px;line-height:1.5;color:#70757c;">Due ${escapeHtml(dueDate)}</p>
+                          <div style="height:1px;background:#e8eaed;margin:28px 0;"></div>
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:16px;line-height:1.5;">
+                            <tr>
+                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">To</td>
+                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(customerName)}</td>
+                            </tr>
+                            <tr>
+                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">From</td>
+                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(accountName)}</td>
+                            </tr>
+                            <tr>
+                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">Memo</td>
+                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(memo)}</td>
+                            </tr>
+                          </table>
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-collapse:separate;border-spacing:0;">
+                            <tr>
+                              <td align="center" style="background:#0f2f46;border-radius:10px;">
+                                <a href="${escapeHtml(paymentLink)}" style="display:block;padding:15px 20px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.4;font-weight:700;">Pay this invoice</a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dce5e4;border-radius:16px;">
+                      <tr>
+                        <td class="invoice-card" style="padding:28px 36px;">
+                          <p style="margin:0 0 22px;font-size:15px;line-height:1.5;color:#70757c;font-weight:600;">Payment details</p>
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:16px;line-height:1.5;">
+                            <tr>
+                              <td style="padding:0 0 18px;color:#24272d;">${escapeHtml(description)}</td>
+                              <td align="right" style="padding:0 0 18px;color:#24272d;font-weight:700;white-space:nowrap;">${escapeHtml(amount)}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding:18px 0 0;border-top:1px solid #e8eaed;color:#24272d;font-weight:700;">Amount due</td>
+                              <td align="right" style="padding:18px 0 0;border-top:1px solid #e8eaed;color:#24272d;font-weight:700;white-space:nowrap;">${escapeHtml(amount)}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:24px 4px 0;font-size:13px;line-height:1.6;color:#ffffff;">
+                      ${storedInvoice.treasury ? "Payment will be recorded in the company workspace." : "Payment is unavailable until the company treasury is connected."}
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="email-pad" style="padding:24px 42px;background:#ffffff;text-align:center;font-size:12px;line-height:1.6;color:#60656d;">
+                    Sent securely through Snitch · Company payments and treasury operations
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
   `;
 
   const plainText = [
-    `Invoice ${invoiceId} from ${accountName}`,
-    `Hi ${customerName},`,
-    `Amount: ${amount}`,
-    `Description: ${description}`,
-    `Due: ${storedInvoice.dueDate}`,
-    `View invoice: ${paymentLink}`,
+    `New invoice from ${accountName}`,
+    `To: ${customerName}`,
+    `Amount due: ${amount}`,
+    `Due ${dueDate}`,
+    `Memo: ${memo}`,
+    `Pay this invoice: ${paymentLink}`,
     storedInvoice.treasury
-      ? "Use Sepolia test ETH to pay this invoice. This is a testnet payment."
-      : "Payments are unavailable until a merchant treasury is configured for a new invoice.",
+      ? "Payment will be recorded in the company workspace."
+      : "Payment is unavailable until the company treasury is connected.",
   ].join("\n\n");
   // Retrying the same send dialog cannot duplicate a provider-accepted email.
   // The key is scoped to the verified owner, invoice, and selected recipient.
@@ -173,7 +274,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from,
         to: [customerEmail],
-        subject: `Invoice ${invoiceId} from ${accountName}`,
+        subject: `New invoice from ${accountName}`,
         html,
         text: plainText,
       }),

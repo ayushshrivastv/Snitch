@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, CalendarDays } from "lucide-react";
 
 import { getConfirmedPayment } from "@/lib/payment-confirmations";
 import { getInvoice } from "@/lib/invoices";
@@ -71,15 +70,26 @@ function displayDate(value: string, includeTime = false) {
   return formatRecordDateTime(new Date(timestamp), { timeZone: "UTC", includeTime });
 }
 
+function shortInvoiceReference(invoiceId: string) {
+  const compact = invoiceId.replace(/^INV-/i, "");
+  return `#${compact.slice(-8)}`;
+}
+
+function merchantInitials(name: string) {
+  const words = name.split(/[^a-z0-9]+/i).filter(Boolean);
+  if (words.length > 1) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 export async function generateMetadata({
   params,
 }: InvoicePageProps): Promise<Metadata> {
-  const { account, invoiceId } = await params;
-  const decodedInvoiceId = decodeURIComponent(invoiceId);
+  const { account } = await params;
+  const merchantName = titleFromSlug(account);
 
   return {
-    title: `${decodedInvoiceId} | ${titleFromSlug(account)}`,
-    description: `View ${decodedInvoiceId} and its payment status on Snitch.`,
+    title: `Invoice | ${merchantName}`,
+    description: `Review and pay an invoice from ${merchantName} on Snitch.`,
   };
 }
 
@@ -101,13 +111,14 @@ export default async function PublicInvoicePage({
     : expired
       ? "Expired"
       : storedInvoice ? "Incomplete" : "Preview";
+  const shortReference = shortInvoiceReference(decodedInvoiceId);
 
   return (
-    <main className="min-h-screen bg-background px-5 py-4 text-foreground sm:px-8">
-      <header className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
+    <main className="min-h-svh bg-background px-4 py-4 text-foreground sm:px-7 sm:py-5">
+      <header className="mx-auto flex max-w-[880px] items-center justify-between gap-4">
         <Link
           href="/"
-          className="inline-flex min-h-10 items-center gap-2 rounded-full pr-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg pr-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Image
             src="/snitch-logo.png"
@@ -119,123 +130,95 @@ export default async function PublicInvoicePage({
           <span>Snitch</span>
         </Link>
 
-        <span className="hidden rounded-full border border-border px-3 py-1 text-sm text-muted-foreground sm:inline-flex">
-          Ethereum Sepolia checkout
+        <span className="inline-flex min-h-8 items-center rounded-full border border-border px-3 text-xs font-medium text-muted-foreground">
+          Secure checkout
         </span>
       </header>
 
-      <section className="mx-auto mt-4 w-full max-w-[720px] sm:mt-6">
-        <nav
-          aria-label="Invoice breadcrumb"
-          className="mb-4 flex items-center justify-center gap-2 text-sm"
-        >
-          <span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">
-            {merchantName}
-          </span>
-          <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
-          <span className="rounded-full border border-border px-3 py-1">
-            Invoice
-          </span>
-        </nav>
-
+      <section className="mx-auto mt-4 w-full max-w-[680px] sm:mt-5">
         <div className="text-center">
-          <span className="inline-block max-w-full break-all rounded-full border border-border px-3 py-1 text-sm">
-            {decodedInvoiceId}
+          <span className="inline-flex min-h-7 items-center rounded-full border border-border px-3 text-xs font-medium text-muted-foreground">
+            Invoice {shortReference}
           </span>
-          <h1 className="mt-4 text-[1.9rem] font-semibold leading-none tracking-[-0.03em] sm:text-[2.15rem]">
-            Pay invoice
+          <h1 className="mt-3 text-[2rem] font-medium leading-none tracking-[-0.035em] sm:text-[2.4rem]">
+            Payment request
           </h1>
-          <p className="mx-auto mt-3 max-w-[32rem] text-[0.95rem] leading-6 text-muted-foreground">
-            {merchantName} sent {invoice.customerName} an ETH invoice on Sepolia testnet.
-            Review the invoice details and payment status below.
+          <p className="mx-auto mt-2 max-w-[32rem] text-sm leading-5 text-muted-foreground sm:text-base">
+            {merchantName} requested payment from {invoice.customerName}.
           </p>
         </div>
 
-        <div className="mt-5 w-full space-y-5 text-left">
-          <section
-            aria-label="Invoice amount and payment"
-            className="flex flex-col gap-4 rounded-[24px] bg-muted/45 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5"
-          >
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Amount due
-              </p>
-              <p className="mt-2 font-mono text-[2.05rem] leading-none tracking-[-0.03em] sm:text-[2.55rem]">
-                {invoice.amount} ETH
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span className="rounded-full bg-background px-3 py-1">
-                  {ETHEREUM_NETWORK_NAME}
-                </span>
-                <span>{paymentStatusLabel}</span>
+        <section aria-label="Invoice" className="mt-5 overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">
+                {merchantInitials(merchantName)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{merchantName}</p>
+                <p className="text-xs text-muted-foreground">Invoice {shortReference}</p>
               </div>
             </div>
+            <span className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              {paymentStatusLabel}
+            </span>
+          </div>
 
-            <div id="payment-request" className="w-full sm:w-[230px]">
+          <div className="px-5 py-5 sm:px-6">
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Amount due</p>
+            <p className="mt-2 font-mono text-[2.45rem] leading-none tracking-[-0.045em] sm:text-[3rem]">
+              {invoice.amount} <span className="text-[0.5em] tracking-normal text-muted-foreground">ETH</span>
+            </p>
+
+            <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-4">
+              {[
+                ["To", invoice.customerName],
+                ["From", merchantName],
+                ["Due", displayDate(invoice.dueDate)],
+                ["Network", ETHEREUM_NETWORK_NAME],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="mt-1 truncate text-sm font-medium" title={value}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-5 flex flex-col gap-4 rounded-lg bg-muted/45 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{invoice.title}</p>
+                {invoice.memo && invoice.memo !== invoice.title ? (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{invoice.memo}</p>
+                ) : null}
+              </div>
+              <p className="shrink-0 text-xs text-muted-foreground">
+                Created {displayDate(invoice.createdAt, true)}
+              </p>
+            </div>
+
+            <div id="payment-request" className="mt-5">
               <PublicInvoicePayment
                 key={decodedInvoiceId}
                 invoiceId={decodedInvoiceId}
+                displayReference={shortReference}
                 completed={isCompleted}
                 amount={invoice.amount}
                 treasury={storedInvoice?.treasury}
                 available={Boolean(storedInvoice?.treasury && !expired)}
                 unavailableReason={expired
-                  ? "This invoice has expired. You can still check a payment that was already submitted."
+                  ? "This invoice has expired. Check any payment already submitted."
                   : storedInvoice
-                    ? "The merchant has not configured an Ethereum treasury address."
-                    : "This invoice preview cannot accept payments. Create a new invoice to enable checkout."}
+                    ? "The company wallet is not ready to receive payment."
+                    : "This invoice preview cannot accept payment."}
                 explorerUrl={confirmedPayment?.explorerUrl}
               />
             </div>
-          </section>
-
-          <div className="mx-auto w-full max-w-[620px] space-y-5 border-t border-border pt-5">
-            <dl className="grid gap-x-12 gap-y-4 sm:grid-cols-2">
-              {[
-                ["Customer", invoice.customerName],
-                ["Merchant", merchantName],
-                ["Due date", displayDate(invoice.dueDate)],
-                ["Created", displayDate(invoice.createdAt, true)],
-                ["Invoice", decodedInvoiceId],
-                ["Network", ETHEREUM_NETWORK_NAME],
-              ].map(([label, value]) => (
-                <div key={label} className="min-w-0">
-                  <dt className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                    {label === "Due date" ? (
-                      <CalendarDays className="size-4" aria-hidden="true" />
-                    ) : null}
-                    {label}
-                  </dt>
-                  <dd className="mt-1 truncate text-sm" title={value}>{value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="space-y-4 border-t border-border pt-5">
-              <section aria-label="Invoice memo">
-                <h2 className="text-sm font-medium text-muted-foreground">
-                  Invoice details
-                </h2>
-                <p className="mt-1.5 text-sm font-medium">{invoice.title}</p>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                  {invoice.memo}
-                </p>
-              </section>
-
-              <section className="space-y-4" aria-label="Payment protections">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Sepolia test payment
-                  </p>
-                  <p className="mt-1 text-sm leading-5">
-                    Use Sepolia test ETH. The recipient, amount, network, and
-                    transaction receipt are verified before payment is marked complete.
-                  </p>
-                </div>
-              </section>
-            </div>
           </div>
-        </div>
+        </section>
+
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Secured by Snitch · The payment is verified before the invoice is marked complete.
+        </p>
       </section>
     </main>
   );

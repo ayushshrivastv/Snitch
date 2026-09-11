@@ -9,6 +9,7 @@ import { getEthereumExplorerUrl, sendEthPayment } from "../../../../../../servic
 
 type PublicInvoicePaymentProps = {
   invoiceId: string;
+  displayReference: string;
   amount: string;
   treasury?: string;
   available: boolean;
@@ -28,6 +29,7 @@ type PaymentStatusResponse = {
 
 export function PublicInvoicePayment({
   invoiceId,
+  displayReference,
   amount,
   treasury,
   available,
@@ -167,7 +169,7 @@ export function PublicInvoicePayment({
         <button
           type="button"
           onClick={() => setIsCompletedModalOpen(true)}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-5 text-base font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-haspopup="dialog"
         >
           <Check className="size-4" aria-hidden="true" />
@@ -179,7 +181,7 @@ export function PublicInvoicePayment({
             type="button"
             disabled={(!available && !pendingHash) || !statusReady || isBusy}
             onClick={() => void handlePayment()}
-            className="min-h-11 w-full whitespace-normal rounded-full text-base font-medium"
+            className="min-h-11 w-full whitespace-normal rounded-lg text-sm font-medium"
           >
             {isBusy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isBusy
@@ -188,8 +190,8 @@ export function PublicInvoicePayment({
                 ? "Check payment status"
                 : available ? `Pay ${amount} ETH` : "Payments unavailable"}
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            {available ? "Pay with Sepolia test ETH from your Ethereum wallet." : unavailableReason}
+          <p className="text-center text-xs text-muted-foreground">
+            {available ? "Continue with an Ethereum wallet on Sepolia." : unavailableReason}
           </p>
           {message ? (
             <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">
@@ -270,7 +272,7 @@ export function PublicInvoicePayment({
               Payment succeeded!
             </h2>
             <p className="mt-3 max-w-[22rem] text-base leading-6 text-muted-foreground">
-              Thank you for completing invoice {invoiceId}. Snitchpay.co has
+              Thank you for completing invoice {displayReference}. Snitchpay.co has
               recorded this payment as complete.
             </p>
 

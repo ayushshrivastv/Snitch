@@ -188,15 +188,20 @@ test("an owner can send a stored invoice, and client-supplied invoice details ca
     assert.ok(email);
     assert.equal(email.from, invoiceSender);
     assert.deepEqual(email.to, ["customer@example.com"]);
-    assert.equal(email.subject, `Invoice ${invoice.id} from Stored company`);
+    assert.equal(email.subject, "New invoice from Stored company");
     assert.match(email.html, /0\.0025 ETH/);
     assert.match(email.html, /Stored customer/);
     assert.match(email.html, /Stored invoice title/);
+    assert.match(email.html, /New invoice from Stored company/);
+    assert.match(email.html, /Pay this invoice/);
+    assert.match(email.html, /Due February 29, 2028/);
+    assert.match(email.html, /src="https:\/\/snitchpay\.vercel\.app\/snitch-logo\.png"/);
+    assert.match(email.html, /linear-gradient\(135deg,#e34850 0%,#7048d8 100%\)/);
     assert.doesNotMatch(email.html, /Fake company|Fake customer|Fake title|999 ETH/);
-    assert.match(email.text, /Amount: 0\.0025 ETH/);
-    assert.match(email.text, /Hi Stored customer,/);
-    assert.match(email.text, /Description: Stored invoice title/);
-    assert.match(email.text, /Due: 2028-02-29/);
+    assert.match(email.text, /Amount due: 0\.0025 ETH/);
+    assert.match(email.text, /To: Stored customer/);
+    assert.match(email.text, /Memo: Stored invoice title/);
+    assert.match(email.text, /Due February 29, 2028/);
     assert.doesNotMatch(email.text, /Fake company|Fake customer|Fake title|999 ETH/);
     const result = await response.json();
     assert.deepEqual(Object.keys(result).sort(), ["ok", "paymentLink", "provider"]);
@@ -205,7 +210,10 @@ test("an owner can send a stored invoice, and client-supplied invoice details ca
     assert.equal(paymentUrl.search, "");
     assert.ok(paymentUrl.pathname.endsWith(`/${invoice.id}`));
     assert.ok(email.html.includes(`href="${result.paymentLink}"`));
-    assert.ok(email.text.includes(`View invoice: ${result.paymentLink}`));
+    assert.ok(email.text.includes(`Pay this invoice: ${result.paymentLink}`));
+    assert.doesNotMatch(email.subject, new RegExp(invoice.id));
+    assert.doesNotMatch(email.html.replace(result.paymentLink, ""), new RegExp(invoice.id));
+    assert.doesNotMatch(email.text.replace(result.paymentLink, ""), new RegExp(invoice.id));
     assert.equal(fetchMock.mock.callCount(), 1);
   } finally {
     fetchMock.mock.restore();
