@@ -156,19 +156,14 @@ export async function POST(request: Request) {
                 </tr>
                 <tr>
                   <td class="email-pad" style="padding:20px 34px 34px;background:#ffffff;border-top:1px solid #e6e6e3;">
-                    <p style="margin:0 0 34px;font-size:16px;line-height:1.5;">
-                      <a href="${escapeHtml(companyUrl)}" style="color:#1264d6;text-decoration:underline;">${escapeHtml(accountName)}</a>
-                    </p>
                     <p style="margin:0 0 28px;font-size:17px;line-height:1.6;color:#202124;">Hi ${escapeHtml(customerName)},</p>
                     <p style="margin:0;font-size:17px;line-height:1.65;color:#202124;">
                       <a href="${escapeHtml(companyUrl)}" style="color:#1264d6;text-decoration:underline;">${escapeHtml(accountName)}</a>
                       sent you an invoice for <strong>${escapeHtml(amount)}</strong>. You can review the invoice and its status using the link below.
                     </p>
 
-                    <div style="margin-top:28px;padding:18px 20px;background:#fafafa;border:1px solid #e4e4e1;border-radius:10px;">
-                      <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#6b6f75;">Invoice details</p>
-                      <p style="margin:0;font-size:17px;line-height:1.5;color:#202124;">${escapeHtml(description)}</p>
-                    </div>
+                    <p style="margin:28px 0 8px;font-size:14px;line-height:1.5;color:#6b6f75;">Invoice details</p>
+                    <p style="margin:0;font-size:17px;line-height:1.5;color:#202124;">${escapeHtml(description)}</p>
 
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;border-collapse:separate;border-spacing:0;">
                       <tr>

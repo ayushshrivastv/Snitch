@@ -196,6 +196,8 @@ test("an owner can send a stored invoice, and client-supplied invoice details ca
     assert.match(email.html, /View invoice/);
     assert.match(email.html, /Use Sepolia test ETH to pay this invoice\. This is a testnet payment\./);
     assert.match(email.html, /src="https:\/\/snitchpay\.vercel\.app\/snitch-logo\.png"/);
+    assert.equal((email.html.match(/>Stored company<\/a>/g) || []).length, 1);
+    assert.doesNotMatch(email.html, /background:#fafafa|Invoice details<\/p>\s*<p[^>]*padding/);
     assert.doesNotMatch(email.html, /linear-gradient/);
     assert.doesNotMatch(email.html, /Fake company|Fake customer|Fake title|999 ETH/);
     assert.match(email.text, /Hi Stored customer,/);
