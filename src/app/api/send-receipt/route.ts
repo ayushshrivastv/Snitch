@@ -143,96 +143,80 @@ export async function POST(request: Request) {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light">
         <style>
-          @media only screen and (max-width: 640px) {
+          @media only screen and (max-width: 600px) {
             .email-shell { width: 100% !important; }
             .email-pad { padding-left: 20px !important; padding-right: 20px !important; }
-            .invoice-card { padding: 28px 24px !important; }
-            .amount { font-size: 42px !important; }
+            .amount { font-size: 38px !important; }
           }
         </style>
       </head>
-      <body style="margin:0;padding:0;background:#f5f3f8;color:#17191d;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;">A payment request for ${escapeHtml(amount)} from ${escapeHtml(accountName)} is ready.</div>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f5f3f8;border-collapse:collapse;">
+      <body style="margin:0;padding:0;background:#f5f5f4;color:#17191d;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(accountName)} sent a bill for ${escapeHtml(description)}, due ${escapeHtml(dueDate)}.</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f5f5f4;border-collapse:collapse;">
           <tr>
-            <td align="center" style="padding:32px 12px;">
-              <table role="presentation" class="email-shell" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:640px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;">
+            <td align="center" style="padding:28px 12px;">
+              <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:600px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e4e4e1;border-radius:14px;overflow:hidden;">
                 <tr>
-                  <td class="email-pad" style="padding:34px 42px 30px;background:#ffffff;">
+                  <td class="email-pad" style="padding:30px 38px 16px;background:#ffffff;">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
                       <tr>
                         <td style="font-size:15px;font-weight:700;color:#17191d;">
-                          <img src="${escapeHtml(logoUrl)}" width="34" height="34" alt="Snitch" style="display:inline-block;width:34px;height:34px;margin-right:10px;vertical-align:middle;">
+                          <img src="${escapeHtml(logoUrl)}" width="32" height="32" alt="Snitch" style="display:inline-block;width:32px;height:32px;margin-right:9px;vertical-align:middle;">
                           <span style="vertical-align:middle;">Snitch</span>
                         </td>
                       </tr>
                     </table>
-                    <h1 style="margin:30px 0 10px;font-size:28px;line-height:1.25;letter-spacing:-0.4px;color:#24272d;font-weight:700;">New invoice from ${escapeHtml(accountName)}</h1>
-                    <p style="margin:0;font-size:16px;line-height:1.5;color:#6b7078;"><strong style="color:#3d424a;">to:</strong> ${escapeHtml(customerEmail)}</p>
                   </td>
                 </tr>
                 <tr>
-                  <td class="email-pad" style="padding:42px;background:#7048d8;background-image:linear-gradient(135deg,#e34850 0%,#7048d8 100%);border-top:1px solid #d5c3e3;">
-                    <p style="margin:0 0 24px;font-size:17px;line-height:1.4;color:#ffffff;font-weight:700;">
-                      <img src="${escapeHtml(logoUrl)}" width="40" height="40" alt="" style="display:inline-block;width:40px;height:40px;margin-right:10px;vertical-align:middle;">
-                      ${escapeHtml(accountName)}
-                    </p>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dce5e4;border-radius:16px;">
+                  <td class="email-pad" style="padding:22px 38px 34px;background:#ffffff;">
+                    <p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#5f6368;">Hi ${escapeHtml(customerName)},</p>
+                    <h1 style="margin:0;font-size:29px;line-height:1.25;letter-spacing:-0.5px;color:#202124;font-weight:700;">${escapeHtml(accountName)} sent you a bill for ${escapeHtml(description)}.</h1>
+                    <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#5f6368;">Payment is due on ${escapeHtml(dueDate)}.</p>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:26px;border-collapse:separate;border-spacing:0;background:#fafaf9;border:1px solid #e4e4e1;border-radius:10px;">
                       <tr>
-                        <td class="invoice-card" style="padding:34px 36px;">
-                          <p style="margin:0 0 4px;font-size:16px;line-height:1.5;color:#70757c;">Invoice from ${escapeHtml(accountName)}</p>
-                          <p class="amount" style="margin:0;font-size:48px;line-height:1.12;letter-spacing:-1.4px;color:#17191d;font-weight:700;">${escapeHtml(amount)}</p>
-                          <p style="margin:10px 0 0;font-size:16px;line-height:1.5;color:#70757c;">Due ${escapeHtml(dueDate)}</p>
-                          <div style="height:1px;background:#e8eaed;margin:28px 0;"></div>
-                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:16px;line-height:1.5;">
+                        <td style="padding:24px 26px;">
+                          <p style="margin:0 0 5px;font-size:13px;line-height:1.5;color:#6b6f75;">Amount due</p>
+                          <p class="amount" style="margin:0;font-size:42px;line-height:1.1;letter-spacing:-1px;color:#17191d;font-weight:700;">${escapeHtml(amount)}</p>
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;border-collapse:collapse;font-size:15px;line-height:1.5;">
                             <tr>
-                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">To</td>
-                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(customerName)}</td>
+                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Bill for</td>
+                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(description)}</td>
                             </tr>
                             <tr>
-                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">From</td>
-                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(accountName)}</td>
+                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">From</td>
+                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(accountName)}</td>
                             </tr>
                             <tr>
-                              <td width="90" style="padding:7px 0;color:#62676f;vertical-align:top;">Memo</td>
-                              <td style="padding:7px 0;color:#24272d;vertical-align:top;">${escapeHtml(memo)}</td>
+                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Due</td>
+                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(dueDate)}</td>
                             </tr>
-                          </table>
-                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-collapse:separate;border-spacing:0;">
-                            <tr>
-                              <td align="center" style="background:#0f2f46;border-radius:10px;">
-                                <a href="${escapeHtml(paymentLink)}" style="display:block;padding:15px 20px;color:#ffffff;text-decoration:none;font-size:16px;line-height:1.4;font-weight:700;">Pay this invoice</a>
-                              </td>
-                            </tr>
+                            ${memo !== description ? `<tr>
+                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Note</td>
+                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(memo)}</td>
+                            </tr>` : ""}
                           </table>
                         </td>
                       </tr>
                     </table>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dce5e4;border-radius:16px;">
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;border-collapse:separate;border-spacing:0;">
                       <tr>
-                        <td class="invoice-card" style="padding:28px 36px;">
-                          <p style="margin:0 0 22px;font-size:15px;line-height:1.5;color:#70757c;font-weight:600;">Payment details</p>
-                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:16px;line-height:1.5;">
-                            <tr>
-                              <td style="padding:0 0 18px;color:#24272d;">${escapeHtml(description)}</td>
-                              <td align="right" style="padding:0 0 18px;color:#24272d;font-weight:700;white-space:nowrap;">${escapeHtml(amount)}</td>
-                            </tr>
-                            <tr>
-                              <td style="padding:18px 0 0;border-top:1px solid #e8eaed;color:#24272d;font-weight:700;">Amount due</td>
-                              <td align="right" style="padding:18px 0 0;border-top:1px solid #e8eaed;color:#24272d;font-weight:700;white-space:nowrap;">${escapeHtml(amount)}</td>
-                            </tr>
-                          </table>
+                        <td align="center" style="background:#17191d;border-radius:9px;">
+                          <a href="${escapeHtml(paymentLink)}" style="display:block;padding:15px 20px;color:#ffffff;text-decoration:none;font-size:15px;line-height:1.4;font-weight:700;">View and pay</a>
                         </td>
                       </tr>
                     </table>
-                    <p style="margin:24px 4px 0;font-size:13px;line-height:1.6;color:#ffffff;">
+
+                    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#73777d;">
                       ${storedInvoice.treasury ? "Payment will be recorded in the company workspace." : "Payment is unavailable until the company treasury is connected."}
                     </p>
                   </td>
                 </tr>
                 <tr>
-                  <td class="email-pad" style="padding:24px 42px;background:#ffffff;text-align:center;font-size:12px;line-height:1.6;color:#60656d;">
-                    Sent securely through Snitch · Company payments and treasury operations
+                  <td class="email-pad" style="padding:20px 38px;background:#fafaf9;border-top:1px solid #ececea;text-align:center;font-size:12px;line-height:1.6;color:#686c72;">
+                    Sent securely through Snitch
                   </td>
                 </tr>
               </table>
@@ -244,12 +228,12 @@ export async function POST(request: Request) {
   `;
 
   const plainText = [
-    `New invoice from ${accountName}`,
+    `${accountName} sent you a bill for ${description}.`,
     `To: ${customerName}`,
     `Amount due: ${amount}`,
-    `Due ${dueDate}`,
-    `Memo: ${memo}`,
-    `Pay this invoice: ${paymentLink}`,
+    `Due: ${dueDate}`,
+    ...(memo !== description ? [`Note: ${memo}`] : []),
+    `View and pay: ${paymentLink}`,
     storedInvoice.treasury
       ? "Payment will be recorded in the company workspace."
       : "Payment is unavailable until the company treasury is connected.",
@@ -274,7 +258,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from,
         to: [customerEmail],
-        subject: `New invoice from ${accountName}`,
+        subject: `${accountName} sent you a bill for ${description}`,
         html,
         text: plainText,
       }),
