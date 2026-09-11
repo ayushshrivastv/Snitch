@@ -10,7 +10,7 @@ Pending and failed Playground payouts use checksummed address-format fixtures fr
 
 ## USD treasury presentation
 
-The Snitchpay.co wallet overview uses explicitly selected showcase USD figures from `src/data/showcase-treasury.ts`: a $0.00 current balance and $6,821.00 in payment volume across September 9–11, 2026. Values use integer cents; the 30-day balance history ends at zero and the three-day volume total sums its observations. These fixtures are independent of the historical ETH transfer rows and do not price Sepolia ETH in USD.
+The Snitchpay.co wallet overview uses explicitly selected showcase USD figures from `src/data/showcase-treasury.ts`: a $98.00 current balance and $6,821.00 in payment volume across September 9–11, 2026. Values use integer cents; the 30-day balance history ends at $98.00 and the three-day volume total sums its observations. These fixtures are independent of the historical ETH transfer rows and do not price Sepolia ETH in USD.
 
 Only `ShowcaseTreasuryPanel` supplies these figures. Real company wallets retain their onchain balances. The Snitchpay.co identity card also keeps its live ETH balance, refresh control, network, and address. USD presentation values never enter invoices, payout validation, signing, or export authority.
 
