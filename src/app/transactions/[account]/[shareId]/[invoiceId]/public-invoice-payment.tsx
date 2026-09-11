@@ -186,7 +186,7 @@ export function PublicInvoicePayment({
               ? pendingHash ? "Confirming payment…" : "Connecting wallet…"
               : pendingHash
                 ? "Check payment status"
-                : available ? "Pay invoice" : "Payments unavailable"}
+                : available ? "Pay" : "Payments unavailable"}
           </Button>
           {!available && !pendingHash ? (
             <p className="text-center text-xs text-muted-foreground">{unavailableReason}</p>
