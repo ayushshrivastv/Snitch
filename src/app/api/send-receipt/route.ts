@@ -21,18 +21,6 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function formatEmailDate(value: string) {
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
-}
-
 function slugifyPath(value: string) {
   return (
     value
@@ -129,11 +117,10 @@ export async function POST(request: Request) {
   const amount = `${storedInvoice.amount} ${storedInvoice.currency}`;
   const customerName = storedInvoice.customerName;
   const description = storedInvoice.title;
-  const memo = storedInvoice.memo || description;
-  const dueDate = formatEmailDate(storedInvoice.dueDate);
 
   const paymentLink = paymentUrl.toString();
   const logoUrl = new URL("/snitch-logo.png", origin).toString();
+  const companyUrl = new URL("/", origin).toString();
 
   const html = `
     <!doctype html>
@@ -145,19 +132,18 @@ export async function POST(request: Request) {
         <style>
           @media only screen and (max-width: 600px) {
             .email-shell { width: 100% !important; }
-            .email-pad { padding-left: 20px !important; padding-right: 20px !important; }
-            .amount { font-size: 38px !important; }
+            .email-pad { padding-left: 22px !important; padding-right: 22px !important; }
           }
         </style>
       </head>
-      <body style="margin:0;padding:0;background:#f5f5f4;color:#17191d;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(accountName)} sent a bill for ${escapeHtml(description)}, due ${escapeHtml(dueDate)}.</div>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f5f5f4;border-collapse:collapse;">
+      <body style="margin:0;padding:0;background:#ffffff;color:#17191d;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(accountName)} sent you an invoice for ${escapeHtml(amount)}.</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#ffffff;border-collapse:collapse;">
           <tr>
-            <td align="center" style="padding:28px 12px;">
-              <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:600px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e4e4e1;border-radius:14px;overflow:hidden;">
+            <td align="center" style="padding:30px 12px;">
+              <table role="presentation" class="email-shell" width="620" cellspacing="0" cellpadding="0" border="0" style="width:620px;max-width:620px;border-collapse:collapse;background:#ffffff;">
                 <tr>
-                  <td class="email-pad" style="padding:30px 38px 16px;background:#ffffff;">
+                  <td class="email-pad" style="padding:0 34px 24px;background:#ffffff;">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
                       <tr>
                         <td style="font-size:15px;font-weight:700;color:#17191d;">
@@ -169,54 +155,32 @@ export async function POST(request: Request) {
                   </td>
                 </tr>
                 <tr>
-                  <td class="email-pad" style="padding:22px 38px 34px;background:#ffffff;">
-                    <p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#5f6368;">Hi ${escapeHtml(customerName)},</p>
-                    <h1 style="margin:0;font-size:29px;line-height:1.25;letter-spacing:-0.5px;color:#202124;font-weight:700;">${escapeHtml(accountName)} sent you a bill for ${escapeHtml(description)}.</h1>
-                    <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#5f6368;">Payment is due on ${escapeHtml(dueDate)}.</p>
-
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:26px;border-collapse:separate;border-spacing:0;background:#fafaf9;border:1px solid #e4e4e1;border-radius:10px;">
-                      <tr>
-                        <td style="padding:24px 26px;">
-                          <p style="margin:0 0 5px;font-size:13px;line-height:1.5;color:#6b6f75;">Amount due</p>
-                          <p class="amount" style="margin:0;font-size:42px;line-height:1.1;letter-spacing:-1px;color:#17191d;font-weight:700;">${escapeHtml(amount)}</p>
-                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;border-collapse:collapse;font-size:15px;line-height:1.5;">
-                            <tr>
-                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Bill for</td>
-                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(description)}</td>
-                            </tr>
-                            <tr>
-                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">From</td>
-                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(accountName)}</td>
-                            </tr>
-                            <tr>
-                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Due</td>
-                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(dueDate)}</td>
-                            </tr>
-                            ${memo !== description ? `<tr>
-                              <td width="100" style="padding:7px 0;color:#666a70;vertical-align:top;">Note</td>
-                              <td style="padding:7px 0;color:#202124;vertical-align:top;">${escapeHtml(memo)}</td>
-                            </tr>` : ""}
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;border-collapse:separate;border-spacing:0;">
-                      <tr>
-                        <td align="center" style="background:#17191d;border-radius:9px;">
-                          <a href="${escapeHtml(paymentLink)}" style="display:block;padding:15px 20px;color:#ffffff;text-decoration:none;font-size:15px;line-height:1.4;font-weight:700;">View and pay</a>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#73777d;">
-                      ${storedInvoice.treasury ? "Payment will be recorded in the company workspace." : "Payment is unavailable until the company treasury is connected."}
+                  <td class="email-pad" style="padding:20px 34px 34px;background:#ffffff;border-top:1px solid #e6e6e3;">
+                    <p style="margin:0 0 34px;font-size:16px;line-height:1.5;">
+                      <a href="${escapeHtml(companyUrl)}" style="color:#1264d6;text-decoration:underline;">${escapeHtml(accountName)}</a>
                     </p>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="email-pad" style="padding:20px 38px;background:#fafaf9;border-top:1px solid #ececea;text-align:center;font-size:12px;line-height:1.6;color:#686c72;">
-                    Sent securely through Snitch
+                    <p style="margin:0 0 28px;font-size:17px;line-height:1.6;color:#202124;">Hi ${escapeHtml(customerName)},</p>
+                    <p style="margin:0;font-size:17px;line-height:1.65;color:#202124;">
+                      <a href="${escapeHtml(companyUrl)}" style="color:#1264d6;text-decoration:underline;">${escapeHtml(accountName)}</a>
+                      sent you an invoice for <strong>${escapeHtml(amount)}</strong>. You can review the invoice and its status using the link below.
+                    </p>
+
+                    <div style="margin-top:28px;padding:18px 20px;background:#fafafa;border:1px solid #e4e4e1;border-radius:10px;">
+                      <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#6b6f75;">Invoice details</p>
+                      <p style="margin:0;font-size:17px;line-height:1.5;color:#202124;">${escapeHtml(description)}</p>
+                    </div>
+
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;border-collapse:separate;border-spacing:0;">
+                      <tr>
+                        <td align="center" style="background:#17191d;border-radius:999px;">
+                          <a href="${escapeHtml(paymentLink)}" style="display:block;padding:14px 24px;color:#ffffff;text-decoration:none;font-size:15px;line-height:1.4;font-weight:700;">View invoice</a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#73777d;">
+                      Use Sepolia test ETH to pay this invoice. This is a testnet payment.
+                    </p>
                   </td>
                 </tr>
               </table>
@@ -228,15 +192,12 @@ export async function POST(request: Request) {
   `;
 
   const plainText = [
-    `${accountName} sent you a bill for ${description}.`,
-    `To: ${customerName}`,
-    `Amount due: ${amount}`,
-    `Due: ${dueDate}`,
-    ...(memo !== description ? [`Note: ${memo}`] : []),
-    `View and pay: ${paymentLink}`,
-    storedInvoice.treasury
-      ? "Payment will be recorded in the company workspace."
-      : "Payment is unavailable until the company treasury is connected.",
+    accountName,
+    `Hi ${customerName},`,
+    `${accountName} sent you an invoice for ${amount}. You can review the invoice and its status using the link below.`,
+    `Invoice details\n${description}`,
+    `View invoice: ${paymentLink}`,
+    "Use Sepolia test ETH to pay this invoice. This is a testnet payment.",
   ].join("\n\n");
   // Retrying the same send dialog cannot duplicate a provider-accepted email.
   // The key is scoped to the verified owner, invoice, and selected recipient.
@@ -258,7 +219,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from,
         to: [customerEmail],
-        subject: `${accountName} sent you a bill for ${description}`,
+        subject: `${accountName} sent you an invoice`,
         html,
         text: plainText,
       }),
