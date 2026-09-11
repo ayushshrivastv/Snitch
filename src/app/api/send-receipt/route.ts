@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = process.env.SNITCH_PUBLIC_ORIGIN?.trim() || new URL(request.url).origin;
   const accountName = storedInvoice.treasuryAccount;
   const accountSlug = slugifyPath(accountName);
   const sharePath = sharePathFromTransaction(storedInvoice.id);

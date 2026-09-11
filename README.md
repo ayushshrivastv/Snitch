@@ -39,6 +39,8 @@ Open [127.0.0.1:3000](http://127.0.0.1:3000). The public preview is available at
 | `NEXT_PUBLIC_ETHEREUM_RPC_URL` | Browser Sepolia RPC URL; defaults to the public endpoint in `.env.example`. |
 | `ETHEREUM_RPC_URL` | Optional server Sepolia RPC override for balances and verification. |
 | `SNITCH_DATA_DIR` | Persistent database directory; defaults to `.data` during development. An absolute path is required in production. |
+| `SNITCH_API_ORIGIN` | Optional HTTPS origin for a persistent Snitch backend. Set on Vercel to proxy `/api/*` while keeping the Vercel frontend URL. |
+| `SNITCH_PUBLIC_ORIGIN` | Public frontend origin used by the backend when it generates hosted checkout links. |
 | `RESEND_API_KEY` | Optional email credential. The current sender is Resend's development sender; configure an approved sender before general delivery. |
 | `NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS` | Legacy invoice-helper fallback. Authenticated invoice creation always uses the stored company wallet. |
 
@@ -95,6 +97,8 @@ The current deployment model is one Node service with persistent SQLite storage.
 `vercel.json` selects the Next.js framework, installs the locked dependencies including build tooling, and runs `npm run build`. This preserves the project's `next build --webpack` command and its Privy connector alias. Running bare `next build` selects Turbopack and fails against the Webpack configuration. The Node engine range keeps deployments on supported Node 22 releases.
 
 A successful Vercel build can serve the public landing page and showcase, but it does not make the current SQLite backend compatible with Vercel functions. Authenticated company operations, wallet bindings, invoices, payouts, balances, and export approval require the persistent backend. Keep the full application on a Node web service with a persistent disk, or migrate these stores to a managed database before using them on Vercel. Setting `SNITCH_DATA_DIR` to `/tmp` does not provide durable storage.
+
+To keep the Vercel frontend, deploy the same commit to a single Render web service with a persistent disk, then set `SNITCH_API_ORIGIN` on Vercel to that service's HTTPS origin. Set `SNITCH_PUBLIC_ORIGIN` on Render to the Vercel production origin so emailed checkout links return to the public site. The Render service still requires `SNITCH_DATA_DIR` to point to its mounted disk and the same Privy credentials. Do not set `SNITCH_API_ORIGIN` on Render.
 
 ## Further documentation
 

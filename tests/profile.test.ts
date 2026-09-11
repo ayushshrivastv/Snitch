@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { after, before, mock, test } from "node:test";
 import type { User } from "@privy-io/node";
+import type { User as PrivyClientUser } from "@privy-io/react-auth";
 import { fixtureUserId, installPrivyAuthFixture } from "./helpers/privy-auth";
-import { normalizeDisplayName, profileFromPrivyUser } from "../src/lib/workspace-profile";
+import { normalizeDisplayName, profileFromPrivyClientUser, profileFromPrivyUser } from "../src/lib/workspace-profile";
 import { getPrivyClient } from "../src/lib/privy-server";
 import { GET, PUT } from "../src/app/api/profile/route";
 
@@ -53,6 +54,22 @@ test("provider names are used directly and a saved display name takes precedence
   const user: User = { ...privyUser(), linked_accounts: [{ type: "google_oauth", subject: "google-user", name: "María  López", email: "maria@example.com", verified_at: 1, first_verified_at: 1, latest_verified_at: 1 }] };
   assert.deepEqual(profileFromPrivyUser(user), { userId: fixtureUserId, name: "María López", initials: "ML", email: "maria@example.com", needsName: false });
   assert.equal(profileFromPrivyUser({ ...user, custom_metadata: { display_name: "M. López" } }).name, "M. López");
+});
+
+test("the workspace can render immediately from Privy's authenticated client identity", () => {
+  const user = {
+    id: fixtureUserId,
+    email: { address: "finance@example.com" },
+    customMetadata: { display_name: "  Ayush  Srivastava " },
+    linkedAccounts: [],
+  } as unknown as PrivyClientUser;
+  assert.deepEqual(profileFromPrivyClientUser(user), {
+    userId: fixtureUserId,
+    name: "Ayush Srivastava",
+    initials: "AS",
+    email: "finance@example.com",
+    needsName: false,
+  });
 });
 
 test("names are normalized without excluding international and single-word names", () => {

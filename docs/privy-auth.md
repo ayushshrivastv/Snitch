@@ -1,12 +1,12 @@
 # Privy authentication
 
-Snitch opens Privy email sign-in directly from the landing page's Login button. Closing the dialog leaves the visitor on the landing page; successful sign-in opens `/workspace`. `/login` remains available as a direct entry and authentication fallback. The workspace verifies the access token on the server and loads the user's profile from Privy before opening company accounts. Privy manages session persistence and token refresh. Signing in does not create a wallet.
+Snitch opens Privy email sign-in directly from the landing page's Login button. Closing the dialog leaves the visitor on the landing page; successful sign-in opens `/workspace`. `/login` remains available as a direct entry and authentication fallback. The workspace opens from Privy's authenticated client identity immediately, then synchronizes the server-verified profile in the background. Every protected API request still verifies its Privy access token independently. Privy manages session persistence and token refresh. Signing in does not create a wallet.
 
 ## Profile and sidebar name
 
 `GET /api/profile` reads the user identified by the verified token. A saved `custom_metadata.display_name` takes precedence over a linked provider's name or username. The current email-only login normally supplies no name; Snitch does not invent one from the email address.
 
-When no name is available, a focused dialog asks the signed-in user to enter one before opening company accounts. `PUT /api/profile` validates and saves it to that user's Privy custom metadata, preserving existing metadata fields. The name is normalized, limited to 80 characters, and supports international names. The browser cannot choose another profile's user ID or write arbitrary metadata through this route.
+When no name is available, a focused dialog asks the signed-in user to enter one after the profile request resolves. `PUT /api/profile` validates and saves it to that user's Privy custom metadata, preserving existing metadata fields. The name is normalized, limited to 80 characters, and supports international names. The browser cannot choose another profile's user ID or write arbitrary metadata through this route.
 
 The sidebar's bottom user menu and workspace greeting read the same profile name. Initials are derived from it. This persists across browser refreshes and later sign-ins to the same Privy account; it does not depend on local storage. Sign out remains available during profile setup.
 
@@ -43,7 +43,7 @@ API callers must include `Authorization: Bearer <Privy access token>`. There is 
 
 ## Local connection recovery
 
-The Privy server SDK is loaded as a native Node dependency rather than bundled into the authentication route. Workspace verification allows 30 seconds for token retrieval and the server response. Profile requests have a separate 25-second deadline. A stalled attempt shows a retry action; cancelled or late responses cannot open the workspace with a different identity. Interrupted company wallet creation resumes the saved company instead of requiring a new account; details are in [Interrupted setup](company-wallets.md#interrupted-setup).
+The Privy server SDK is loaded as a native Node dependency rather than bundled into the authentication route. Profile requests have a 25-second deadline and synchronize without replacing the workspace with a second authentication screen. A stalled attempt shows a retry notice; cancelled or late responses cannot change a new session's profile. Interrupted company wallet creation resumes the saved company instead of requiring a new account; details are in [Interrupted setup](company-wallets.md#interrupted-setup).
 
 ## Manual verification
 

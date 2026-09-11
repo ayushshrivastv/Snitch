@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { LoaderCircle } from "lucide-react";
 import HomePage from "@/app/home-client";
+import { profileFromPrivyClientUser } from "@/lib/workspace-profile";
 import { ProfileWorkspace } from "./profile-workspace";
-import { AuthScreen } from "./auth-screen";
-import { startWorkspaceVerification, type WorkspaceVerification } from "./workspace-verification";
 
 export function WorkspaceAccess() {
   const { ready, authenticated, user, getAccessToken, logout } = usePrivy();
   const router = useRouter();
-  const [verification, setVerification] = useState<WorkspaceVerification | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const userId = user?.id;
 
   useEffect(() => {
     if (!ready) return;
-    if (!authenticated || !userId) { router.replace("/login"); return; }
-    return startWorkspaceVerification({ userId, getAccessToken, onResult: setVerification });
-  }, [ready, authenticated, userId, getAccessToken, router, attempt]);
+    if (!authenticated || !user) router.replace("/login");
+  }, [ready, authenticated, user, router]);
 
   async function signOut() {
     await logout();
@@ -28,12 +23,49 @@ export function WorkspaceAccess() {
     router.refresh();
   }
 
-  const current = verification?.userId === userId ? verification : null;
-  if (ready && authenticated && user && current?.verified) {
-    return <ProfileWorkspace key={user.id} userId={user.id} getAccessToken={getAccessToken} logout={signOut}><HomePage workspace /></ProfileWorkspace>;
+  if (ready && authenticated && user) {
+    return <ProfileWorkspace
+      key={user.id}
+      userId={user.id}
+      initialProfile={profileFromPrivyClientUser(user)}
+      getAccessToken={getAccessToken}
+      logout={signOut}
+    >
+      <HomePage workspace />
+    </ProfileWorkspace>;
   }
 
-  return <AuthScreen title={current?.error ? "Let’s reconnect." : "Opening your workspace."} description={current?.error || "Confirming your sign-in with Snitch."}>
-    {current?.error ? <><button className="snitch-auth__button" onClick={() => { setVerification(null); setAttempt(value => value + 1); }}>Try again</button><button className="snitch-auth__secondary" onClick={() => void signOut()}>Sign out</button></> : <div className="snitch-auth__status" role="status"><LoaderCircle size={18} className="snitch-auth__spinner" aria-hidden="true" />Verifying session…</div>}
-  </AuthScreen>;
+  return <WorkspaceLoadingShell />;
+}
+
+function WorkspaceLoadingShell() {
+  return <main className="grid h-screen min-h-[40rem] grid-cols-1 overflow-hidden bg-background text-foreground md:grid-cols-[17.5rem_1fr]" aria-label="Opening your workspace" aria-busy="true">
+    <aside className="hidden h-screen flex-col border-r border-border px-5 py-7 md:flex">
+      <div className="flex items-center gap-3 px-2">
+        <Image src="/snitch-logo.png" alt="" width={40} height={40} priority />
+        <span className="text-xl font-semibold">Snitch</span>
+      </div>
+      <div className="mt-10 space-y-3 animate-pulse motion-reduce:animate-none">
+        <div className="h-14 rounded-xl bg-muted" />
+        {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-11 rounded-xl bg-muted/55" />)}
+      </div>
+      <div className="mt-auto flex items-center gap-3 px-2 animate-pulse motion-reduce:animate-none">
+        <div className="size-11 rounded-full bg-muted" />
+        <div className="h-4 w-28 rounded-full bg-muted" />
+      </div>
+    </aside>
+    <section className="px-5 py-8 sm:px-9 sm:py-10">
+      <span className="sr-only">Opening your workspace</span>
+      <div className="max-w-5xl animate-pulse space-y-8 motion-reduce:animate-none">
+        <div className="space-y-3">
+          <div className="h-10 w-3/5 rounded-lg bg-muted" />
+          <div className="h-5 w-2/5 rounded bg-muted/65" />
+        </div>
+        <div className="grid max-w-3xl grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="h-72 rounded-2xl border border-dashed border-border bg-muted/20" />
+          <div className="h-72 rounded-2xl border border-border bg-muted/40" />
+        </div>
+      </div>
+    </section>
+  </main>;
 }

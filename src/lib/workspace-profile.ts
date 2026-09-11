@@ -1,4 +1,5 @@
 import type { User } from "@privy-io/node";
+import type { User as PrivyClientUser } from "@privy-io/react-auth";
 
 export const DISPLAY_NAME_MAX_LENGTH = 80;
 
@@ -32,6 +33,23 @@ export function profileFromPrivyUser(user: User): WorkspaceProfile {
     if (!name && account.type === "telegram") {
       name = normalizeDisplayName([account.first_name, account.last_name].filter(Boolean).join(" "));
     }
+    if (!name && "username" in account) name = normalizeDisplayName(account.username);
+  }
+
+  const initials = name
+    ? name.split(/\s+/u).slice(0, 2).map(part => [...part][0]).join("").toLocaleUpperCase()
+    : "";
+  return { userId: user.id, name, initials, ...(email ? { email } : {}), needsName: !name };
+}
+
+export function profileFromPrivyClientUser(user: PrivyClientUser): WorkspaceProfile {
+  let name = normalizeDisplayName(user.customMetadata?.display_name);
+  let email = user.email?.address;
+
+  for (const account of user.linkedAccounts) {
+    if (!email && account.type === "email") email = account.address;
+    if (!name && "name" in account) name = normalizeDisplayName(account.name);
+    if (!name && "displayName" in account) name = normalizeDisplayName(account.displayName);
     if (!name && "username" in account) name = normalizeDisplayName(account.username);
   }
 

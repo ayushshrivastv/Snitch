@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { floatingNavLoginClass } from "@/components/ui/floating-navbar";
@@ -33,7 +33,7 @@ function PrivyLandingLogin() {
     onComplete: () => {
       // Privy also calls this on mount for existing sessions. Landing stays public
       // until the visitor explicitly clicks Login.
-      if (requested.current) router.push("/workspace");
+      if (requested.current) router.replace("/workspace");
     },
     onError: code => {
       requested.current = false;
@@ -42,12 +42,16 @@ function PrivyLandingLogin() {
     },
   });
 
+  useEffect(() => {
+    if (ready) router.prefetch("/workspace");
+  }, [ready, router]);
+
   function openLogin() {
     if (!ready || requested.current) return;
     requested.current = true;
     setError("");
     setPending(true);
-    if (authenticated) router.push("/workspace");
+    if (authenticated) router.replace("/workspace");
     else login();
   }
 
