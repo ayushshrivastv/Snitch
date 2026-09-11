@@ -235,7 +235,7 @@ test("invoice creation rejects malformed bodies, unsupported assets/networks, in
     { ...validBody, currency: "USD" },
     { ...validBody, network: "Ethereum Mainnet" },
     ...[0.001, "0", "-1", "1e-3", "0.0000000000000000001"].map(invoiceAmount => ({ ...validBody, invoiceAmount })),
-    ...["2026-02-29", "2026-02-30", "2026-04-31", "2026-13-01", "not-a-date"].map(dueDate => ({ ...validBody, dueDate })),
+    ...["2020-01-01", "2026-02-29", "2026-02-30", "2026-04-31", "2026-13-01", "not-a-date"].map(dueDate => ({ ...validBody, dueDate })),
   ];
   for (const body of cases) {
     const response = await invoiceRoute.POST(post("/api/invoices", body));
@@ -322,7 +322,9 @@ test("pending and reverted transactions remain unpaid and a later successful tra
     const result = await response.json();
     assert.equal(response.status, receiptStatus === null ? 202 : 422, JSON.stringify(result));
     if (receiptStatus === 0) assert.equal(result.code, "transaction_reverted");
-    assert.equal((await status(invoice.id)).payment, null);
+    const invoiceStatus = await status(invoice.id);
+    assert.equal(invoiceStatus.payment, null);
+    assert.equal(invoiceStatus.status, "Incomplete");
   }
   const transactionHash = registerTransaction(invoice.id);
   const response = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));

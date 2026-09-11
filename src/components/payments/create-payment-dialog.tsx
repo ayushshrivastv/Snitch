@@ -40,7 +40,13 @@ export function CreatePaymentDialog({ accountName, companyId, onClose, onCreateP
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
-  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [today] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const isShowcase = companyId === PLAYGROUND_ACCOUNT_ID;
   const requiresSignIn = !session || needsSignIn;
   const walletReady = company?.wallet.status === "ready" && Boolean(company.wallet.address);
@@ -73,6 +79,9 @@ export function CreatePaymentDialog({ accountName, companyId, onClose, onCreateP
     const dueTimestamp = Date.parse(dueDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !Number.isFinite(dueTimestamp) || new Date(dueTimestamp).toISOString().slice(0, 10) !== dueDate) {
       setDateError("Enter a valid due date."); dateRef.current?.focus(); return;
+    }
+    if (dueDate < today) {
+      setDateError("The due date cannot be in the past."); dateRef.current?.focus(); return;
     }
 
     setIsSubmitting(true);
@@ -134,7 +143,7 @@ export function CreatePaymentDialog({ accountName, companyId, onClose, onCreateP
         </label>
         <label className={creationLabelClass}>
           Due date
-          <input ref={dateRef} name="dueDate" type="date" defaultValue={today} aria-invalid={Boolean(dateError)} aria-describedby={dateError ? "payment-date-error" : undefined} onChange={() => { if (dateError) setDateError(""); }} className={creationInputClass} />
+          <input ref={dateRef} name="dueDate" type="date" min={today} defaultValue={today} aria-invalid={Boolean(dateError)} aria-describedby={dateError ? "payment-date-error" : undefined} onChange={() => { if (dateError) setDateError(""); }} className={creationInputClass} />
           {dateError ? <span id="payment-date-error" role="alert" className="text-xs font-normal text-destructive">{dateError}</span> : null}
         </label>
       </div>

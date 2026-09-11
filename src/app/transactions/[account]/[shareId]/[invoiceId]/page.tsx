@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { getConfirmedPayment } from "@/lib/payment-confirmations";
 import { getInvoice } from "@/lib/invoices";
+import { isInvoiceExpired } from "@/lib/invoice-lifecycle";
 import { formatRecordDateTime, formatSavedRecordDate } from "@/lib/record-date";
 import { TEST_INVOICE_AMOUNT_ETH } from "../../../../../../services/ethereum";
 import { PublicInvoiceCheckout, PublicInvoicePayment } from "./public-invoice-payment";
@@ -52,14 +53,6 @@ function previewInvoice(
     dueDate: getSearchValue(searchParams, "dueDate") || "Not set",
     createdAt: getSearchValue(searchParams, "createdAt") || "Not set",
   };
-}
-
-function isExpired(dueDate: string) {
-  const timestamp = Date.parse(dueDate);
-  if (Number.isNaN(timestamp)) return false;
-  const dueEnd = new Date(timestamp);
-  dueEnd.setUTCHours(23, 59, 59, 999);
-  return dueEnd.getTime() < Date.now();
 }
 
 function displayDate(value: string, includeTime = false) {
@@ -159,7 +152,7 @@ export default async function PublicInvoicePage({
   const invoice = storedInvoice ?? previewInvoice(resolvedSearchParams);
   const confirmedPayment = storedInvoice ? await getConfirmedPayment(decodedInvoiceId) : undefined;
   const isCompleted = confirmedPayment?.status === "Succeeded";
-  const expired = Boolean(storedInvoice && !isCompleted && isExpired(storedInvoice.dueDate));
+  const expired = Boolean(storedInvoice && !isCompleted && isInvoiceExpired(storedInvoice.dueDate));
   const invoiceNumber = numericInvoiceNumber(decodedInvoiceId);
   return (
     <main className="flex h-svh flex-col overflow-hidden bg-[#f7f8fa] px-4 py-4 text-[#17191d] [color-scheme:light] sm:px-7 sm:py-5">

@@ -62,6 +62,12 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (dueDate < new Date().toISOString().slice(0, 10)) {
+    return NextResponse.json(
+      { error: "The invoice due date cannot be in the past." },
+      { status: 400 },
+    );
+  }
 
   try {
     const companyId = text(body.companyId);

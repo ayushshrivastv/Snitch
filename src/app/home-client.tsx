@@ -31,6 +31,7 @@ import { readPendingCompanyPayouts, rememberPendingCompanyPayout, forgetPendingC
 import type { Invoice } from "@/lib/invoices";
 import type { ConfirmedInvoicePayment } from "@/lib/payment-confirmations";
 import { companyPayoutDisplayId } from "@/lib/company-payout-types";
+import { resolveInvoiceLifecycleStatus } from "@/lib/invoice-lifecycle";
 import { blockchainAddressUrl, formatBlockchainDate, getShowcaseTransfer, type ShowcaseTransfer } from "@/lib/showcase-blockchain";
 import { PLAYGROUND_TREASURY_ADDRESS, showcasePayoutWallets } from "@/lib/showcase-payout-wallets";
 import { SnitchLandingPage } from "@/components/landing/landing-page";
@@ -1086,31 +1087,8 @@ function invoicePathFromTransaction(
   )}/${encodeURIComponent(invoiceId)}?${params.toString()}`;
 }
 
-function parsePaymentDueDate(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const timestamp = Date.parse(value);
-
-  return Number.isNaN(timestamp) ? null : new Date(timestamp);
-}
-
 function effectiveTransactionStatus(transaction: Transaction): TransactionStatus {
-  if (transaction.status !== "Incomplete") {
-    return transaction.status;
-  }
-
-  const dueDate = parsePaymentDueDate(transaction.dueDate);
-
-  if (!dueDate) {
-    return transaction.status;
-  }
-
-  const dueEnd = new Date(dueDate);
-  dueEnd.setHours(23, 59, 59, 999);
-
-  return dueEnd.getTime() < Date.now() ? "Failed" : transaction.status;
+  return resolveInvoiceLifecycleStatus(transaction.status, transaction.dueDate);
 }
 
 function TransactionActionButton({
