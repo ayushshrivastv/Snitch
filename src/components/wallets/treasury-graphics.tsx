@@ -16,16 +16,16 @@ const HEIGHT = 180;
 const BASELINE = 174;
 const PLOT_HEIGHT = 150;
 
-// These scoped chart tokens preserve the violet/coral series identity of the
+// These scoped chart tokens preserve the violet/teal series identity of the
 // treasury reference while allowing a parent theme to override the palette.
 const palette = {
   bar: "var(--treasury-bar, #a579ff)",
   barTop: "var(--treasury-bar-top, #b184ff)",
   barCap: "var(--treasury-bar-cap, #d2c7ff)",
-  volumeLine: "var(--treasury-volume-line, #ff8aaf)",
-  volumePink: "var(--treasury-volume-pink, #ff8dbb)",
-  volumeCoral: "var(--treasury-volume-coral, #ff9d9f)",
-  volumeBloom: "var(--treasury-volume-bloom, #ffd7eb)",
+  volumeLine: "var(--treasury-volume-line, #21968f)",
+  volumeGreen: "var(--treasury-volume-green, #159d82)",
+  volumeTeal: "var(--treasury-volume-teal, #269694)",
+  volumeBlue: "var(--treasury-volume-blue, #3c7ba9)",
 };
 
 function nonnegativeSeries(values: readonly number[]) {
@@ -174,25 +174,14 @@ export function TreasuryVolumeArea({ values, label, className }: TreasuryGraphic
       <title>{label}</title>
       <defs>
         <linearGradient id={`${id}-fill`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor={palette.volumeCoral} />
-          <stop offset="28%" stopColor={palette.volumePink} />
-          <stop offset="48%" stopColor={palette.volumeBloom} />
-          <stop offset="70%" stopColor={palette.volumeCoral} />
-          <stop offset="100%" stopColor={palette.volumePink} />
+          <stop offset="0%" stopColor={palette.volumeGreen} />
+          <stop offset="50%" stopColor={palette.volumeTeal} />
+          <stop offset="100%" stopColor={palette.volumeBlue} />
         </linearGradient>
-        <filter id={`${id}-grain`} x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="8" stitchTiles="stitch" result="noise" />
-          <feColorMatrix in="noise" type="saturate" values="0" />
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="0.16" />
-          </feComponentTransfer>
-          <feComposite in2="SourceGraphic" operator="in" result="grain" />
-          <feBlend in="SourceGraphic" in2="grain" mode="multiply" />
-        </filter>
       </defs>
       {maximum ? (
         <g>
-          {area ? <path d={area} fill={`url(#${id}-fill)`} filter={`url(#${id}-grain)`} /> : null}
+          {area ? <path d={area} fill={`url(#${id}-fill)`} /> : null}
           <path
             d={line}
             fill="none"

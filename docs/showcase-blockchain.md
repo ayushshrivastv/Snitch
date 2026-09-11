@@ -1,6 +1,6 @@
 # Playground blockchain records
 
-Snitchpay.co's Playground keeps 23 transaction rows and 12 payout rows. Its 12 successful transactions and 6 successful payouts use distinct public native ETH transfers from Ethereum Sepolia and Base Sepolia. The other rows remain illustrative workflow examples. Customer names, invoice references, and the assignment of a transfer to a payment or payout are presentation labels; they do not identify the owners of the public wallets or imply those transfers were processed by Snitch.
+Snitchpay.co's Playground keeps 23 transaction rows and 11 payout rows. Its 12 successful transactions and 6 successful payouts use distinct public native ETH transfers from Ethereum Sepolia and Base Sepolia. The other rows remain illustrative workflow examples. Customer names, invoice references, and the assignment of a transfer to a payment or payout are presentation labels; they do not identify the owners of the public wallets or imply those transfers were processed by Snitch.
 
 The successful rows are verified historical snapshots, not a live wallet feed. Their amounts, sender and recipient addresses, hashes, block numbers, and UTC timestamps come from blockchain RPC responses. Values are stored both as integer wei and exact ETH strings. Gas is separate from transferred value; payout details link to the receipt for its actual fee. Both pages provide explorer links, and CSV exports include blockchain references and provenance.
 
@@ -10,7 +10,7 @@ Pending and failed Playground payouts use checksummed address-format fixtures fr
 
 ## USD treasury presentation
 
-The Snitchpay.co wallet overview uses explicitly selected showcase USD figures from `src/data/showcase-treasury.ts`: a $51,968.68 balance and $221,663.25 in payment volume across August 13–September 11, 2026. Values use integer cents; the balance chart ends at the displayed balance and the volume total sums the daily observations. These fixtures are independent of the historical ETH transfer rows and do not price Sepolia ETH in USD.
+The Snitchpay.co wallet overview uses explicitly selected showcase USD figures from `src/data/showcase-treasury.ts`: a $0.00 current balance and $6,000.00 in payment volume across September 9–11, 2026. Values use integer cents; the 30-day balance history ends at zero and the three-day volume total sums its observations. These fixtures are independent of the historical ETH transfer rows and do not price Sepolia ETH in USD.
 
 Only `ShowcaseTreasuryPanel` supplies these figures. Real company wallets retain their onchain balances. The Snitchpay.co identity card also keeps its live ETH balance, refresh control, network, and address. USD presentation values never enter invoices, payout validation, signing, or export authority.
 

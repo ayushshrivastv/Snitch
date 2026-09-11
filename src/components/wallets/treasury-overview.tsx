@@ -8,6 +8,8 @@ export type UsdTreasurySnapshot = {
   balanceHistoryCents: readonly number[];
   volumeHistoryCents: readonly number[];
   periodLabel: string;
+  volumePeriodLabel: string;
+  volumeStartLabel: string;
   startLabel: string;
   endLabel: string;
 };
@@ -34,35 +36,35 @@ export function TreasuryOverview({ data, onWalletDetails, onViewPayments, onView
   const volumeCents = data.volumeHistoryCents.reduce((sum, value) => sum + value, 0);
   return <div className="grid gap-4 md:grid-cols-2">
     <section className={cardClass} aria-label="USD treasury balance">
-      <div className="px-5 pt-5 sm:px-6 sm:pt-6">
+      <div className="px-5 pt-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight"><UsdMark />USD</h2>
           <span className="text-xs text-muted-foreground">{data.periodLabel}</span>
         </div>
-        <p className="mt-4 break-words text-4xl font-medium leading-tight tracking-tight tabular-nums sm:text-[42px]">{usd.format(data.balanceCents / 100)}</p>
+        <p className="mt-3 break-words text-3xl font-medium leading-tight tracking-tight tabular-nums sm:text-[32px]">{usd.format(data.balanceCents / 100)}</p>
         <p className="mt-1 text-sm text-muted-foreground">Available balance</p>
       </div>
-      <div className="mt-4 px-5 sm:px-6">
-        <TreasuryBalanceBars values={data.balanceHistoryCents} label={`USD balance history, ending at ${usd.format(data.balanceCents / 100)}`} className="h-44 w-full sm:h-48" />
-        <div className="mt-3 flex justify-between text-[11px] tabular-nums text-muted-foreground"><span>{data.startLabel}</span><span>{data.endLabel}</span></div>
+      <div className="mt-2 px-5">
+        <TreasuryBalanceBars values={data.balanceHistoryCents} label={`USD balance history, ending at ${usd.format(data.balanceCents / 100)}`} className="h-28 w-full sm:h-32" />
+        <div className="mt-2 flex justify-between text-[11px] tabular-nums text-muted-foreground"><span>{data.startLabel}</span><span>{data.endLabel}</span></div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/70 px-3 py-2 sm:px-4">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 px-3 py-1.5">
         <button type="button" onClick={onViewPayouts} className={actionClass}><ArrowUpRight className="size-4" aria-hidden="true" />Payouts</button>
         <button type="button" onClick={onWalletDetails} className={actionClass}>Wallet details<ChevronRight className="size-4" aria-hidden="true" /></button>
       </div>
     </section>
     <section className={cardClass} aria-label="USD payment volume">
-      <div className="px-5 pt-5 sm:px-6 sm:pt-6">
-        <div className="flex min-h-7 items-center justify-between gap-3"><h2 className="text-sm font-medium text-muted-foreground">Payment volume</h2><span className="text-xs text-muted-foreground">{data.periodLabel}</span></div>
-        <p className="mt-4 break-words text-4xl font-medium leading-tight tracking-tight tabular-nums sm:text-[42px]">{usd.format(volumeCents / 100)}</p>
+      <div className="px-5 pt-5">
+        <div className="flex min-h-7 items-center justify-between gap-3"><h2 className="text-sm font-medium text-muted-foreground">Payment volume</h2><span className="text-xs text-muted-foreground">{data.volumePeriodLabel}</span></div>
+        <p className="mt-3 break-words text-3xl font-medium leading-tight tracking-tight tabular-nums sm:text-[32px]">{usd.format(volumeCents / 100)}</p>
         <p className="mt-1 text-sm text-muted-foreground">Total processed</p>
       </div>
-      <div className="mt-4 px-5 sm:px-6">
-        <TreasuryVolumeArea values={data.volumeHistoryCents} label={`Daily USD payment volume, ${usd.format(volumeCents / 100)} total`} className="h-44 w-full sm:h-48" />
-        <div className="mt-3 flex justify-between text-[11px] tabular-nums text-muted-foreground"><span>{data.startLabel}</span><span>{data.endLabel}</span></div>
+      <div className="mt-2 px-5">
+        <TreasuryVolumeArea values={data.volumeHistoryCents} label={`USD payment volume, ${usd.format(volumeCents / 100)} total, ${data.volumePeriodLabel.toLowerCase()}`} className="h-28 w-full sm:h-32" />
+        <div className="mt-2 flex justify-between text-[11px] tabular-nums text-muted-foreground"><span>{data.volumeStartLabel}</span><span>{data.endLabel}</span></div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/70 px-5 py-2 sm:px-6">
-        <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="size-1.5 rounded-full bg-pink-400" />Payment activity</span>
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 px-5 py-1.5">
+        <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="size-1.5 rounded-full bg-[#21968f]" />Payment activity</span>
         <button type="button" onClick={onViewPayments} className={actionClass}>View payments<ArrowUpRight className="size-4" aria-hidden="true" /></button>
       </div>
     </section>

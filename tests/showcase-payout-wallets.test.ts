@@ -37,10 +37,10 @@ function readPayoutSeeds() {
   });
 }
 
-test("payout address fixtures cover only the six pending/failed showcase payouts", () => {
+test("payout address fixtures cover only the five pending/failed showcase payouts", () => {
   const seeds = readPayoutSeeds();
   const illustrative = seeds.filter(seed => seed.status === "Incomplete" || seed.status === "Failed");
-  assert.equal(illustrative.length, 6);
+  assert.equal(illustrative.length, 5);
   assert.deepEqual(Object.keys(showcasePayoutWallets).sort(), illustrative.map(seed => seed.id).sort());
   for (const seed of seeds) {
     if (seed.status === "Succeeded") assert.equal(Object.hasOwn(showcasePayoutWallets, seed.id), false);
@@ -69,5 +69,5 @@ test("illustrative payouts use one checksummed treasury and distinct nonzero rec
     assert.equal(recipients.has(wallets.to.toLowerCase()), false);
     recipients.add(wallets.to.toLowerCase());
   }
-  assert.equal(recipients.size, 6);
+  assert.equal(recipients.size, 5);
 });

@@ -53,11 +53,11 @@ function readSeedRecords(name: "transactions" | "payments"): SeedRecord[] {
   });
 }
 
-test("all 23 transactions and 12 payouts remain, with every and only successful seed backed by a transfer", () => {
+test("all 23 transactions and 11 payouts remain, with every and only successful seed backed by a transfer", () => {
   const transactions = readSeedRecords("transactions");
   const payouts = readSeedRecords("payments");
   assert.equal(transactions.length, 23);
-  assert.equal(payouts.length, 12);
+  assert.equal(payouts.length, 11);
   assert.equal(transactions.filter(record => record.status === "Succeeded").length, 12);
   assert.equal(payouts.filter(record => record.status === "Succeeded").length, 6);
 

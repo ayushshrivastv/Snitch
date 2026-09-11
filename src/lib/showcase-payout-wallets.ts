@@ -13,11 +13,6 @@ export type ShowcasePayoutWallet = Readonly<{ from: string; to: string }>;
 export const PLAYGROUND_TREASURY_ADDRESS = "0xD43733B4d4Be99438609Ecaeade7526BF80efb7C";
 
 export const showcasePayoutWallets: Readonly<Partial<Record<string, ShowcasePayoutWallet>>> = {
-  // Base Sepolia — Failed.
-  PO_7DA0E4B19C66: {
-    from: PLAYGROUND_TREASURY_ADDRESS,
-    to: "0x0fd2Fa962C119BB81d623ADc665d4C53C161e6a9",
-  },
   // Ethereum Sepolia — Incomplete.
   PO_2F5BD907A118: {
     from: PLAYGROUND_TREASURY_ADDRESS,
