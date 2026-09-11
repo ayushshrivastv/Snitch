@@ -74,6 +74,15 @@ const schema = [
     attempts INTEGER NOT NULL DEFAULT 0, next_check_at TEXT NOT NULL
   )`,
   "CREATE INDEX IF NOT EXISTS payout_submissions_by_company_owner ON company_payout_submissions(company_id, owner_user_id, next_check_at)",
+  `CREATE TABLE IF NOT EXISTS deleted_company_records (
+    owner_user_id TEXT NOT NULL, company_id TEXT NOT NULL,
+    record_type TEXT NOT NULL CHECK(record_type IN ('transaction', 'payout')),
+    record_id TEXT NOT NULL, transaction_hash TEXT COLLATE NOCASE,
+    deleted_at TEXT NOT NULL,
+    PRIMARY KEY(owner_user_id, company_id, record_type, record_id)
+  )`,
+  "CREATE INDEX IF NOT EXISTS deleted_records_by_company ON deleted_company_records(owner_user_id, company_id, record_type)",
+  "CREATE INDEX IF NOT EXISTS deleted_records_by_hash ON deleted_company_records(owner_user_id, company_id, transaction_hash)",
   `CREATE TABLE IF NOT EXISTS snitch_schema_migrations (
     version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
   )`,
@@ -83,9 +92,9 @@ const schema = [
 async function schemaIsCurrent(client: Client | Transaction): Promise<boolean> {
   const exists = await client.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'snitch_schema_migrations'");
   if (!exists.rows.length) return false;
-  const version = await client.execute(`SELECT 1 FROM snitch_schema_migrations WHERE version = 2
+  const version = await client.execute(`SELECT 1 FROM snitch_schema_migrations WHERE version = 3
     AND (SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
-      AND name IN ('invoice_payment_attempts', 'invoice_payment_submissions', 'company_payout_submissions')) = 3`);
+      AND name IN ('invoice_payment_attempts', 'invoice_payment_submissions', 'company_payout_submissions', 'deleted_company_records')) = 4`);
   return version.rows.length === 1;
 }
 
@@ -120,7 +129,7 @@ async function applySchema(client: Client): Promise<void> {
     }
     await transaction.batch(schema);
     await transaction.execute({
-      sql: "INSERT OR IGNORE INTO snitch_schema_migrations (version, applied_at) VALUES (2, ?)",
+      sql: "INSERT OR IGNORE INTO snitch_schema_migrations (version, applied_at) VALUES (3, ?)",
       args: [new Date().toISOString()],
     });
     await transaction.commit();

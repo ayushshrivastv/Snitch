@@ -24,7 +24,7 @@ test("one initialization creates the full shared schema and preserves records af
     const database = temporary.open();
     await database.ready();
     const tables = (await database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()).map(row => row.name);
-    for (const name of ["companies", "wallet_export_approvals", "invoices", "invoice_payments", "invoice_payment_attempts", "invoice_payment_submissions", "company_payouts", "company_payout_submissions"]) assert.ok(tables.includes(name));
+    for (const name of ["companies", "wallet_export_approvals", "invoices", "invoice_payments", "invoice_payment_attempts", "invoice_payment_submissions", "company_payouts", "company_payout_submissions", "deleted_company_records"]) assert.ok(tables.includes(name));
     await database.prepare("INSERT INTO invoices (id, created_at, payload) VALUES (?, ?, ?)").run("INV-PERSIST", "2026-09-11", "{}");
     database.close();
     const reopened = temporary.open();
@@ -52,7 +52,7 @@ test("the payment recovery migration preserves existing production invoices and 
     for (const table of ["invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions"]) {
       assert.equal((await migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table))?.name, table);
     }
-    assert.equal((await migrated.prepare("SELECT version FROM snitch_schema_migrations WHERE version = 2").get())?.version, 2);
+    assert.equal((await migrated.prepare("SELECT version FROM snitch_schema_migrations WHERE version = 3").get())?.version, 3);
   } finally { temporary.close(); }
 });
 

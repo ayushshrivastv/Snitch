@@ -16,12 +16,13 @@ const columns = {
   invoice_payment_attempts: ["transaction_hash", "invoice_id", "status", "created_at", "updated_at"],
   invoice_payment_submissions: ["invoice_id", "transaction_hash", "created_at", "next_check_at", "attempts"],
   company_payout_submissions: ["id", "company_id", "owner_user_id", "transaction_hash", "sender", "recipient", "amount", "receiver_name", "memo", "created_at", "updated_at", "attempts", "next_check_at"],
+  deleted_company_records: ["owner_user_id", "company_id", "record_type", "record_id", "transaction_hash", "deleted_at"],
 } as const;
 type ImportTable = keyof typeof columns;
 const importTables = Object.keys(columns) as ImportTable[];
 // Version 1 backups predate recovery tables. Existing version 2 rows must be
 // copied exactly so pending broadcasts can resume without resending funds.
-const recoveryTables = new Set<ImportTable>(["invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions"]);
+const recoveryTables = new Set<ImportTable>(["invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions", "deleted_company_records"]);
 const targetTables = [...importTables, "wallet_export_approvals"] as const;
 type TargetTable = typeof targetTables[number];
 

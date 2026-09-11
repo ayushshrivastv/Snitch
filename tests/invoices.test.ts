@@ -384,7 +384,7 @@ test("company invoice hydration requires the verified owner and restores exact r
   assert.equal(records[0].companyId, account.id);
   const unrelated = (await companies.create(owner, "Other company", otherRecipient));
   const empty = await listRoute.GET(listRequest(owner), { params: Promise.resolve({ companyId: unrelated.id }) });
-  assert.deepEqual(await empty.json(), { invoices: [] });
+  assert.deepEqual(await empty.json(), { invoices: [], deletedRecordIds: [] });
 });
 
 test("a pending broadcast survives browser logout and store restart, then public status persists its mined receipt", async () => {

@@ -323,6 +323,10 @@ export class CompanyStore {
         await this.db.prepare("DELETE FROM company_payouts WHERE company_id = ? AND owner_user_id = ?")
           .run(companyId, userId);
       }
+      if (await this.hasTable("deleted_company_records")) {
+        await this.db.prepare("DELETE FROM deleted_company_records WHERE company_id = ? AND owner_user_id = ?")
+          .run(companyId, userId);
+      }
       await this.db.prepare("DELETE FROM wallet_export_approvals WHERE company_id = ?").run(companyId);
 
       const result = await this.db.prepare("DELETE FROM companies WHERE id = ? AND owner_user_id = ? AND purpose = 'company'")

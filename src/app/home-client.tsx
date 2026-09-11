@@ -30,6 +30,7 @@ import { recordBroadcastCompanyPayout } from "@/components/auth/company-payment-
 import { readPendingCompanyPayouts, rememberPendingCompanyPayout, forgetPendingCompanyPayout, type PendingCompanyPayout } from "@/lib/pending-company-payouts";
 import type { Invoice } from "@/lib/invoices";
 import type { ConfirmedInvoicePayment } from "@/lib/payment-confirmations";
+import { companyPayoutDisplayId } from "@/lib/company-payout-types";
 import { blockchainAddressUrl, formatBlockchainDate, getShowcaseTransfer, type ShowcaseTransfer } from "@/lib/showcase-blockchain";
 import { PLAYGROUND_TREASURY_ADDRESS, showcasePayoutWallets } from "@/lib/showcase-payout-wallets";
 import { SnitchLandingPage } from "@/components/landing/landing-page";
@@ -2001,6 +2002,7 @@ function PaymentsView({
   setSelectedAccountId,
   accountPayments,
   onCreatePayout,
+  onRemovePayout,
 }: {
   activeNav: NavItem;
   setActiveNav: (item: NavItem) => void;
@@ -2009,10 +2011,13 @@ function PaymentsView({
   setSelectedAccountId: (id: string) => void;
   accountPayments: Payment[];
   onCreatePayout: (payout: CreatedPayoutInput) => Promise<string | null>;
+  onRemovePayout: (payment: Payment) => Promise<void>;
 }) {
   const [selectedId, setSelectedId] = useState(accountPayments[0]?.id ?? "");
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [isCreatePayoutOpen, setIsCreatePayoutOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const activeAccountName =
     instances.find((instance) => instance.id === selectedAccountId)?.name ??
     "Snitchpay.co";
@@ -2150,6 +2155,17 @@ function PaymentsView({
           <PaymentDetails
             payment={selectedPayment}
             onClose={() => setDetailsOpen(false)}
+            deleting={deletingId === selectedPayment.id}
+            deleteError={deleteError}
+            onDelete={async () => {
+              setDeletingId(selectedPayment.id); setDeleteError("");
+              try {
+                await onRemovePayout(selectedPayment);
+                setDetailsOpen(false); setSelectedId("");
+              } catch (error) {
+                setDeleteError(error instanceof Error ? error.message : "This payout could not be deleted.");
+              } finally { setDeletingId(""); }
+            }}
           />
         ) : null}
         {isCreatePayoutOpen ? (
@@ -2802,7 +2818,7 @@ function TransactionsView({
   setSelectedAccountId: (id: string) => void;
   accountTransactions: Transaction[];
   onCreatePayment: (payment: CreatedPaymentInput) => void;
-  onRemoveTransaction: (id: string) => void;
+  onRemoveTransaction: (transaction: Transaction) => Promise<void>;
   onMarkPaymentSucceeded: (invoiceId: string, payment?: ConfirmedInvoicePayment) => void;
 }) {
   const [activeTransactionFilter, setActiveTransactionFilter] =
@@ -3197,7 +3213,12 @@ function TransactionsView({
                         <TransactionActionButton
                           label="Remove invoice"
                           icon={Trash2}
-                          onClick={() => onRemoveTransaction(transaction.id)}
+                          onClick={() => {
+                            setReceiptStatus(null);
+                            void onRemoveTransaction(transaction).catch(error => setReceiptStatus({
+                              tone: "error", message: error instanceof Error ? error.message : "This transaction could not be deleted.",
+                            }));
+                          }}
                           className="rounded-l-none rounded-r-lg"
                           tooltipClassName="right-0"
                         />
@@ -3301,9 +3322,15 @@ function PayoutWalletAddress({
 function PaymentDetails({
   payment,
   onClose,
+  onDelete,
+  deleting,
+  deleteError,
 }: {
   payment: Payment;
   onClose: () => void;
+  onDelete: () => Promise<void>;
+  deleting: boolean;
+  deleteError: string;
 }) {
   const blockchain = payment.blockchain;
   const transactionHash = blockchain?.hash ?? payment.transactionHash;
@@ -3365,6 +3392,16 @@ function PaymentDetails({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            aria-label={`Delete payout ${payment.id}`}
+            title="Delete payout"
+            disabled={deleting}
+            onClick={() => void onDelete()}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             aria-label="Close details"
             onClick={onClose}
             className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -3373,6 +3410,7 @@ function PaymentDetails({
           </button>
         </div>
       </header>
+      {deleteError ? <p role="alert" className="px-5 pb-2 text-xs text-destructive">{deleteError}</p> : null}
 
       <div className="h-[calc(100vh-56px)] overflow-auto px-5 pb-6">
         <section className="pt-3">
@@ -4211,7 +4249,7 @@ function companyPayoutRow(record: PendingCompanyPayout & {
   status?: PaymentStatus; blockNumber?: number; confirmedAt?: string;
 }, saved: boolean): Payment {
   return {
-    id: `PO_${record.transactionHash.slice(2, 18).toUpperCase()}`,
+    id: companyPayoutDisplayId(record.transactionHash),
     walletCompanyId: record.companyId, transactionHash: record.transactionHash,
     saved, memo: record.memo,
     time: new Date(record.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
@@ -4271,7 +4309,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
       try {
         await Promise.all(companyWallets!.companies.map(async company => {
           const accountId = company.purpose === "playground" ? DEMO_COMPANY_ID : company.id;
-          const payoutsRequest = companyWallets!.listCompanyPayouts(company.id).then(records => {
+          const payoutsRequest = companyWallets!.listCompanyPayouts(company.id).then(({ payouts: records, deletedRecordIds }) => {
             if (controller.signal.aborted) return;
             records.forEach(record => forgetPendingCompanyPayout(ownerId, record.transactionHash));
             setPaymentRowsByAccount(current => ({ ...current, [accountId]: [
@@ -4280,12 +4318,12 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
                 return previous?.saved && previous.status !== "Incomplete" && record.status === "Incomplete"
                   ? previous : companyPayoutRow(record, true);
               }),
-              ...(current[accountId] ?? []).filter(row => !records.some(record => record.transactionHash === row.transactionHash)),
+              ...(current[accountId] ?? []).filter(row => !deletedRecordIds.includes(row.id) && !records.some(record => record.transactionHash === row.transactionHash)),
             ] }));
           }).catch(() => undefined);
-          const invoicesRequest = requestCompanyWallet<{ invoices: Array<Invoice & {status: "Incomplete" | "Succeeded"; payment: ConfirmedInvoicePayment | null}> }>(
+          const invoicesRequest = requestCompanyWallet<{ deletedRecordIds: string[]; invoices: Array<Invoice & {status: "Incomplete" | "Succeeded"; payment: ConfirmedInvoicePayment | null}> }>(
             `/api/companies/${company.id}/invoices`, { signal: controller.signal, getAccessToken: session!.getAccessToken },
-          ).then(({ invoices }) => {
+          ).then(({ invoices, deletedRecordIds }) => {
             if (controller.signal.aborted) return;
             const rows: Transaction[] = invoices.map(invoice => ({
               id: `TX_${invoice.id}`, companyId: accountId, walletCompanyId: company.id,
@@ -4302,7 +4340,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
                 const previous = current.find(item => item.invoiceId === row.invoiceId && item.walletCompanyId === row.walletCompanyId);
                 return previous?.confirmedPayment?.status === "Succeeded" && !row.confirmedPayment ? previous : row;
               }),
-              ...current.filter(row => !rows.some(record => record.invoiceId === row.invoiceId && record.walletCompanyId === row.walletCompanyId)),
+              ...current.filter(row => !deletedRecordIds.includes(row.id) && !rows.some(record => record.invoiceId === row.invoiceId && record.walletCompanyId === row.walletCompanyId)),
             ]);
           }).catch(() => undefined);
           await Promise.all([payoutsRequest, invoicesRequest]);
@@ -4541,14 +4579,28 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [companyWallets, paymentRowsByAccount, session]);
 
-  const removeTransaction = (id: string) => {
-    if (!activeAccountId) {
-      return;
-    }
+  const removeTransaction = async (transaction: Transaction) => {
+    if (!activeAccountId || !companyWallets) throw new Error("Sign in to delete this transaction.");
+    const company = resolveWalletCompany(companyWallets.companies, activeAccountId);
+    if (!company) throw new Error("Company account not found. Refresh and try again.");
+    await companyWallets.deleteCompanyRecord(company.id, {
+      type: "transaction", recordId: transaction.id, invoiceId: invoiceIdFromTransaction(transaction),
+    });
+    setTransactionRows(currentRows => currentRows.filter(row => row.companyId !== activeAccountId || row.id !== transaction.id));
+  };
 
-    setTransactionRows((currentRows) =>
-      currentRows.filter((transaction) => transaction.companyId !== activeAccountId || transaction.id !== id),
-    );
+  const removePayout = async (payment: Payment) => {
+    if (!activeAccountId || !companyWallets) throw new Error("Sign in to delete this payout.");
+    const company = resolveWalletCompany(companyWallets.companies, activeAccountId);
+    if (!company) throw new Error("Company account not found. Refresh and try again.");
+    await companyWallets.deleteCompanyRecord(company.id, {
+      type: "payout", recordId: payment.id,
+      ...(payment.transactionHash ? { transactionHash: payment.transactionHash } : {}),
+    });
+    if (session && payment.transactionHash) forgetPendingCompanyPayout(session.user.id, payment.transactionHash);
+    setPaymentRowsByAccount(current => ({
+      ...current, [activeAccountId]: (current[activeAccountId] ?? []).filter(row => row.id !== payment.id),
+    }));
   };
 
   const markPaymentSucceeded = (invoiceId: string, payment?: ConfirmedInvoicePayment) => {
@@ -4675,6 +4727,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
       setSelectedAccountId={setSelectedAccountId}
       accountPayments={accountPayments}
       onCreatePayout={createPayout}
+      onRemovePayout={removePayout}
     />
   );
 }

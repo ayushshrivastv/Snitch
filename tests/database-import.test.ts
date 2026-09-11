@@ -57,7 +57,7 @@ test("dry-run preserves the source bytes and does not initialize target tables",
     const result = await transferDatabaseSnapshot(snapshot, client, false);
     assert.equal(result.mode, "dry-run");
     assert.deepEqual(result.source, { companies: 1, invoices: 1, invoice_payments: 1, company_payouts: 1,
-      invoice_payment_attempts: 0, invoice_payment_submissions: 0, company_payout_submissions: 0 });
+      invoice_payment_attempts: 0, invoice_payment_submissions: 0, company_payout_submissions: 0, deleted_company_records: 0 });
     assert.equal(result.excludedExportApprovals, 1);
     assert.equal((await client.execute("SELECT name FROM sqlite_master WHERE type = 'table'")).rows.length, 0);
     assert.equal(digest(), before);
@@ -88,7 +88,7 @@ test("a conflicting insert rolls back every business record in the import", asyn
   const client = createClient({ url: ":memory:" });
   try {
     await assert.rejects(transferDatabaseSnapshot(snapshot, client, true), /rolled back/);
-    for (const table of ["companies", "invoices", "invoice_payments", "company_payouts", "wallet_export_approvals", "invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions"]) {
+    for (const table of ["companies", "invoices", "invoice_payments", "company_payouts", "wallet_export_approvals", "invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions", "deleted_company_records"]) {
       assert.equal((await client.execute(`SELECT COUNT(*) AS count FROM ${table}`)).rows[0].count, 0);
     }
   } finally { client.close(); }

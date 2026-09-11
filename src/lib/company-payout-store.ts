@@ -3,7 +3,7 @@ import { formatEther } from "ethers";
 
 import { CompanyError } from "./company-store";
 import { AsyncDatabase, getDatabaseKey } from "./database";
-import type { CompanyPayoutRecord } from "./company-payout-types";
+import { companyPayoutDisplayId, type CompanyPayoutRecord } from "./company-payout-types";
 import type { CompanyPaymentConfirmation } from "../components/auth/company-payment-request";
 import { getEthereumExplorerUrl, isEthereumTransactionHash, normalizeEthereumAddress, parseEthAmount } from "../../services/ethereum";
 
@@ -59,6 +59,14 @@ export class CompanyPayoutStore {
     return normalizeEthereumAddress(company.wallet_address);
   }
 
+  private async rejectDeleted(userId: string, companyId: string, hash: string) {
+    const deleted = await this.db.prepare(`SELECT 1 FROM deleted_company_records
+      WHERE owner_user_id = ? AND company_id = ? AND record_type = 'payout'
+        AND (record_id = ? OR transaction_hash = ? COLLATE NOCASE) LIMIT 1`)
+      .get(userId, companyId, companyPayoutDisplayId(hash), hash);
+    if (deleted) throw new CompanyError("This payout record was deleted.", 410, "PAYOUT_DELETED");
+  }
+
   async listForCompany(userId: string, companyId: string): Promise<CompanyPayoutRecord[]> {
     await this.ownedWallet(userId, companyId);
     return (await this.db.prepare("SELECT * FROM company_payouts WHERE owner_user_id = ? AND company_id = ? ORDER BY created_at DESC, id DESC")
@@ -95,6 +103,7 @@ export class CompanyPayoutStore {
     const hash = payment.transactionHash.toLowerCase();
     return this.db.transaction(async () => {
       if (await this.ownedWallet(userId, companyId) !== from) throw new CompanyError("This payment does not belong to the company wallet.", 403, "PAYMENT_WALLET_MISMATCH");
+      await this.rejectDeleted(userId, companyId, hash);
       const verified = await this.db.prepare("SELECT * FROM company_payouts WHERE transaction_hash = ? COLLATE NOCASE").get(hash) as PayoutRow | undefined;
       if (verified) {
         if (!matchesTransfer(verified, userId, companyId, from, to, amount)) payoutConflict();
@@ -150,6 +159,7 @@ export class CompanyPayoutStore {
     const hash = payment.confirmation.transactionHash.toLowerCase();
     return this.db.transaction(async () => {
       if (await this.ownedWallet(userId, companyId) !== sender) throw new CompanyError("This payment does not belong to the company wallet.", 403, "PAYMENT_WALLET_MISMATCH");
+      await this.rejectDeleted(userId, companyId, hash);
       const existing = await this.db.prepare("SELECT * FROM company_payouts WHERE transaction_hash = ? COLLATE NOCASE").get(hash) as PayoutRow | undefined;
       const submission = await this.db.prepare("SELECT * FROM company_payout_submissions WHERE transaction_hash = ? COLLATE NOCASE").get(hash) as SubmissionRow | undefined;
       if (existing && !matchesTransfer(existing, userId, companyId, sender, recipient, amount)) payoutConflict();

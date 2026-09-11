@@ -5,6 +5,7 @@ import { createCompanyPaymentReader } from "@/lib/company-payment-reader";
 import { CompanyPaymentVerificationError, verifyCompanyPayment } from "@/lib/company-payment-verification";
 import { requirePrivyUser } from "@/lib/privy-server";
 import { listRefreshedCompanyPayouts, parseCompanyPayoutInput } from "@/lib/company-payout-service";
+import { getCompanyRecordDeletionStore } from "@/lib/company-record-deletions";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,11 @@ export async function GET(request: Request, context: { params: Promise<{ company
   try {
     const { companyId } = await context.params;
     if (!await getCompanyForUser(auth.userId, companyId)) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
-    return companyResponse({ payouts: await listRefreshedCompanyPayouts(auth.userId, companyId) });
+    const [payouts, deleted] = await Promise.all([
+      listRefreshedCompanyPayouts(auth.userId, companyId),
+      getCompanyRecordDeletionStore().list(auth.userId, companyId),
+    ]);
+    return companyResponse({ payouts, deletedRecordIds: deleted.payouts });
   } catch (error) { return companyErrorResponse(error); }
 }
 

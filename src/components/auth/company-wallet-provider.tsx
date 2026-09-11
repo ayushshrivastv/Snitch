@@ -22,8 +22,9 @@ type CompanyWalletContextValue = {
   exportCompanyWallet: (companyId: string, onStage?: (stage: WalletExportStage) => void, requestSignal?: AbortSignal) => Promise<void>;
   sendCompanyPayment: (companyId: string, payment: CompanyPaymentInput) => Promise<CompanyPaymentBroadcast>;
   confirmCompanyPayment: (companyId: string, payment: RecordCompanyPayoutInput) => Promise<CompanyPaymentConfirmation>;
-  listCompanyPayouts: (companyId: string) => Promise<CompanyPayoutRecord[]>;
+  listCompanyPayouts: (companyId: string) => Promise<{ payouts: CompanyPayoutRecord[]; deletedRecordIds: string[] }>;
   recordCompanyPayout: (companyId: string, payment: RecordCompanyPayoutInput) => Promise<CompanyPayoutRecord>;
+  deleteCompanyRecord: (companyId: string, input: { type: "transaction" | "payout"; recordId: string; invoiceId?: string; transactionHash?: string }) => Promise<string>;
 };
 const CompanyWalletContext = createContext<CompanyWalletContextValue | null>(null);
 export const useCompanyWallets = () => useContext(CompanyWalletContext);
@@ -178,8 +179,7 @@ export function CompanyWalletProvider({ children }: { children: ReactNode }) {
   };
 
   const listCompanyPayouts = useCallback(async (companyId: string) => {
-    const result = await request<{ payouts: CompanyPayoutRecord[] }>(`/api/companies/${companyId}/payouts`, captureLifetime());
-    return result.payouts;
+    return request<{ payouts: CompanyPayoutRecord[]; deletedRecordIds: string[] }>(`/api/companies/${companyId}/payouts`, captureLifetime());
   }, [request, captureLifetime]);
 
   const recordCompanyPayout = useCallback(async (companyId: string, payment: RecordCompanyPayoutInput) => {
@@ -191,6 +191,12 @@ export function CompanyWalletProvider({ children }: { children: ReactNode }) {
 
   return <CompanyWalletContext.Provider value={{
     companies, loading, error, reload, createCompany, connectPlaygroundWallet, sendCompanyPayment, listCompanyPayouts, recordCompanyPayout,
+    deleteCompanyRecord: async (companyId, input) => {
+      const result = await request<{ deletedRecordId: string }>(`/api/companies/${companyId}/records`, captureLifetime(), {
+        method: "DELETE", body: JSON.stringify(input),
+      });
+      return result.deletedRecordId;
+    },
     confirmCompanyPayment: (companyId, payment) => request<CompanyPaymentConfirmation>(`/api/companies/${companyId}/payouts/confirm`, captureLifetime(), {
       method: "POST", body: JSON.stringify(payment),
     }),

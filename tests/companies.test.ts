@@ -194,6 +194,10 @@ test("deleting a company removes its stored records while preserving Playground 
       (id, company_id, owner_user_id, transaction_hash, sender, recipient, amount, receiver_name, memo, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run("payout-delete", company.id, owner, "0xpayout", address(80), address(81), "0.1", "Receiver", "", "Incomplete", "2026-09-11", "2026-09-11");
+    await database.prepare(`INSERT INTO deleted_company_records
+      (owner_user_id, company_id, record_type, record_id, deleted_at)
+      VALUES (?, ?, 'transaction', ?, ?)`)
+      .run(owner, company.id, "TX-DELETED", "2026-09-11");
     database.close();
 
     (await assert.rejects(async () => (await store.deleteForUser("did:privy:someone-else", company.id)), (error) =>
@@ -203,7 +207,7 @@ test("deleting a company removes its stored records while preserving Playground 
 
     const verification = new AsyncDatabase(path);
     try {
-      for (const table of ["invoices", "invoice_payments", "company_payouts"] as const) {
+      for (const table of ["invoices", "invoice_payments", "company_payouts", "deleted_company_records"] as const) {
         assert.equal((await verification.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count, 0);
       }
     } finally { verification.close(); }

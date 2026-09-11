@@ -24,3 +24,7 @@ export type RecordCompanyPayoutInput = {
   receiverName?: string;
   memo?: string;
 };
+
+export function companyPayoutDisplayId(transactionHash: string): string {
+  return `PO_${transactionHash.slice(2, 18).toUpperCase()}`;
+}
