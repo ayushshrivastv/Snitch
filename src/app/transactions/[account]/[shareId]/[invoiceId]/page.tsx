@@ -78,71 +78,58 @@ function numericInvoiceNumber(invoiceId: string) {
   return hash.toString().padStart(12, "0");
 }
 
-const EAN_LEFT = [
-  "0001101", "0011001", "0010011", "0111101", "0100011",
-  "0110001", "0101111", "0111011", "0110111", "0001011",
-];
-const EAN_LEFT_EVEN = [
-  "0100111", "0110011", "0011011", "0100001", "0011101",
-  "0111001", "0000101", "0010001", "0001001", "0010111",
-];
-const EAN_RIGHT = [
-  "1110010", "1100110", "1101100", "1000010", "1011100",
-  "1001110", "1010000", "1000100", "1001000", "1110100",
-];
-const EAN_PARITY = [
-  "LLLLLL", "LLGLGG", "LLGGLG", "LLGGGL", "LGLLGG",
-  "LGGLLG", "LGGGLL", "LGLGLG", "LGLGGL", "LGGLGL",
-];
+function barcodeBars(value: string) {
+  let seed = 2_166_136_261;
+  for (const character of value) {
+    seed = Math.imul(seed ^ character.charCodeAt(0), 16_777_619) >>> 0;
+  }
 
-function ean13(value: string) {
-  const checksum = value
-    .split("")
-    .reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
-  const encoded = `${value}${(10 - (checksum % 10)) % 10}`;
-  const parity = EAN_PARITY[Number(encoded[0])];
-  const left = encoded
-    .slice(1, 7)
-    .split("")
-    .map((digit, index) => (parity[index] === "L" ? EAN_LEFT : EAN_LEFT_EVEN)[Number(digit)])
-    .join("");
-  const right = encoded
-    .slice(7)
-    .split("")
-    .map((digit) => EAN_RIGHT[Number(digit)])
-    .join("");
-
-  return { bits: `101${left}01010${right}101`, encoded };
+  let x = 0;
+  return Array.from({ length: 58 }, (_, index) => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    const width = 1 + (seed % 3);
+    const gap = 1 + ((seed >>> 5) % 2);
+    const bar = {
+      height: index % 13 === 0 || index % 17 === 0 ? 56 : 48,
+      width,
+      x,
+    };
+    x += width + gap;
+    return bar;
+  });
 }
 
-function InvoiceBarcode({ value }: { value: string }) {
-  const { bits, encoded } = ean13(value);
+function InvoiceBarcode({ seed }: { seed: string }) {
+  const bars = barcodeBars(seed);
+  const width = bars[bars.length - 1]?.x ?? 220;
+  const digits = `${numericInvoiceNumber(seed)}${String(seed.length % 100).padStart(2, "0")}`;
 
   return (
     <svg
-      viewBox="0 0 214 72"
+      viewBox={`0 0 ${width + 4} 72`}
       className="mx-auto h-[72px] w-full max-w-[250px]"
-      role="img"
-      aria-label={`Barcode for invoice ${value}`}
+      role="presentation"
+      aria-hidden="true"
       preserveAspectRatio="xMidYMid meet"
     >
-      <g transform="translate(12 0)">
-        {bits.split("").map((bit, index) => bit === "1" ? (
-          <rect
-            key={index}
-            x={index * 2}
-            y="0"
-            width="2"
-            height={index < 3 || (index >= 45 && index < 50) || index >= 92 ? 54 : 47}
-            fill="currentColor"
-          />
-        ) : null)}
-      </g>
-      <text x="12" y="69" fontSize="9" letterSpacing="4.3" fill="currentColor">
-        {encoded.slice(0, 7)}
+      {bars.map((bar, index) => (
+        <rect
+          key={index}
+          x={bar.x + 2}
+          y={56 - bar.height}
+          width={bar.width}
+          height={bar.height}
+          fill="currentColor"
+        />
+      ))}
+      <text x="2" y="69" fontSize="8" fill="currentColor">
+        {digits.slice(0, 1)}
       </text>
-      <text x="116" y="69" fontSize="9" letterSpacing="4.3" fill="currentColor">
-        {encoded.slice(7)}
+      <text x={width * 0.18} y="69" fontSize="8" letterSpacing="3.8" fill="currentColor">
+        {digits.slice(1, 8)}
+      </text>
+      <text x={width * 0.62} y="69" fontSize="8" letterSpacing="3.8" fill="currentColor">
+        {digits.slice(8)}
       </text>
     </svg>
   );
@@ -267,7 +254,7 @@ export default async function PublicInvoicePage({
           </div>
 
           <div className="pt-5">
-            <InvoiceBarcode value={invoiceNumber} />
+            <InvoiceBarcode seed={decodedInvoiceId} />
           </div>
 
           <div className="pointer-events-none absolute inset-x-0 -bottom-3 flex justify-around px-1" aria-hidden="true">
