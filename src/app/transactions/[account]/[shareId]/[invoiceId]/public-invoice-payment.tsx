@@ -9,7 +9,6 @@ import { getEthereumExplorerUrl, sendEthPayment } from "../../../../../../servic
 
 type PublicInvoicePaymentProps = {
   invoiceId: string;
-  displayReference: string;
   amount: string;
   treasury?: string;
   available: boolean;
@@ -29,7 +28,6 @@ type PaymentStatusResponse = {
 
 export function PublicInvoicePayment({
   invoiceId,
-  displayReference,
   amount,
   treasury,
   available,
@@ -188,7 +186,7 @@ export function PublicInvoicePayment({
               ? pendingHash ? "Confirming payment…" : "Connecting wallet…"
               : pendingHash
                 ? "Check payment status"
-                : available ? "Pay" : "Payments unavailable"}
+                : available ? "Pay invoice" : "Payments unavailable"}
           </Button>
           {!available && !pendingHash ? (
             <p className="text-center text-xs text-muted-foreground">{unavailableReason}</p>
@@ -225,7 +223,7 @@ export function PublicInvoicePayment({
 
       {isCompletedModalOpen ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-white/95 px-4 py-6"
+          className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-background/90 px-4 py-6 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
@@ -233,24 +231,11 @@ export function PublicInvoicePayment({
             }
           }}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <span className="absolute left-[11%] top-[13%] h-8 w-3 rotate-[-18deg] rounded-full bg-[#ffcf00]" />
-            <span className="absolute left-[18%] top-[20%] size-3 rounded-full bg-[#3dfb27]" />
-            <span className="absolute left-[30%] top-[9%] h-7 w-2 rotate-[29deg] rounded-full bg-[#3dfb27]" />
-            <span className="absolute left-[42%] top-[11%] h-8 w-3 rotate-[-19deg] rounded-full bg-[#ffcf00]" />
-            <span className="absolute right-[20%] top-[9%] h-3 w-3 rounded-sm bg-[#ffcf00]" />
-            <span className="absolute right-[14%] top-[18%] h-7 w-3 rotate-[24deg] rounded-full bg-[#2fbaf0]" />
-            <span className="absolute right-[9%] top-[31%] h-8 w-3 rotate-[-24deg] rounded-full bg-[#ffcf00]" />
-            <span className="absolute left-[9%] bottom-[21%] h-9 w-3 rotate-[18deg] rounded-full bg-[#8b4ff6]" />
-            <span className="absolute left-[17%] bottom-[18%] size-4 rotate-[32deg] bg-[#2fbaf0]" />
-            <span className="absolute right-[18%] bottom-[22%] h-4 w-8 rotate-[12deg] bg-[#f3165b]" />
-            <span className="absolute right-[9%] bottom-[14%] size-4 rounded-full bg-[#f3168a]" />
-          </div>
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="payment-success-title"
-            className="relative w-full max-w-[460px] rounded-[3px] border border-border/60 bg-background px-9 py-9 text-left shadow-2xl"
+            className="relative w-full max-w-[400px] rounded-2xl border border-border bg-card px-8 py-8 text-center shadow-xl"
           >
             <button
               type="button"
@@ -261,19 +246,18 @@ export function PublicInvoicePayment({
               <X className="size-5" aria-hidden="true" />
             </button>
 
-            <div className="grid size-10 place-items-center rounded-full bg-[#77bf5f] text-white">
+            <div className="mx-auto grid size-11 place-items-center rounded-full bg-primary text-primary-foreground">
               <Check className="size-5" aria-hidden="true" />
             </div>
 
             <h2
               id="payment-success-title"
-              className="mt-6 text-3xl font-semibold tracking-[-0.03em]"
+              className="mt-5 text-2xl font-semibold tracking-[-0.03em]"
             >
-              Payment succeeded!
+              Payment complete
             </h2>
-            <p className="mt-3 max-w-[22rem] text-base leading-6 text-muted-foreground">
-              Thank you for completing invoice {displayReference}. Snitchpay.co has
-              recorded this payment as complete.
+            <p className="mx-auto mt-3 max-w-[18rem] text-sm leading-6 text-muted-foreground">
+              Thanks — Snitchpay.co has recorded this payment as complete.
             </p>
 
             {confirmedExplorerUrl ? (
@@ -281,7 +265,7 @@ export function PublicInvoicePayment({
                 href={confirmedExplorerUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 Explorer
                 <ExternalLink className="size-4" aria-hidden="true" />
