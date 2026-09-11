@@ -12,6 +12,10 @@ let companies: Awaited<ReturnType<typeof installCompanyFixture>>;
 const companyIds = new Map<string, string>();
 const previousTreasury = process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS;
 const previousResendKey = process.env.RESEND_API_KEY;
+const previousResendFrom = process.env.RESEND_FROM;
+const previousPublicOrigin = process.env.SNITCH_PUBLIC_ORIGIN;
+const invoiceSender = "Snitch invoices <invoices@example.com>";
+const publicOrigin = "https://snitchpay.vercel.app";
 const validInvoice = {
   currency: "ETH",
   network: "Ethereum Sepolia",
@@ -26,6 +30,8 @@ before(async () => {
   auth = installPrivyAuthFixture();
   process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS = "0x1111111111111111111111111111111111111111";
   process.env.RESEND_API_KEY = "test-resend-key";
+  process.env.RESEND_FROM = invoiceSender;
+  process.env.SNITCH_PUBLIC_ORIGIN = publicOrigin;
   companies = await installCompanyFixture();
   identityRoute = await import("../src/app/api/auth/me/route");
   invoiceRoute = await import("../src/app/api/invoices/route");
@@ -40,6 +46,10 @@ after(async () => {
   else process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS = previousTreasury;
   if (previousResendKey === undefined) delete process.env.RESEND_API_KEY;
   else process.env.RESEND_API_KEY = previousResendKey;
+  if (previousResendFrom === undefined) delete process.env.RESEND_FROM;
+  else process.env.RESEND_FROM = previousResendFrom;
+  if (previousPublicOrigin === undefined) delete process.env.SNITCH_PUBLIC_ORIGIN;
+  else process.env.SNITCH_PUBLIC_ORIGIN = previousPublicOrigin;
 });
 
 function request(path: string, token?: string, body?: unknown) {
@@ -161,7 +171,7 @@ test("invoice email rejects unknown, unowned, or another user's invoice before a
 
 test("an owner can send a stored invoice, and client-supplied invoice details cannot change its email", async () => {
   const invoice = await createOwnedInvoice();
-  let email: { to: string[]; subject: string; html: string } | undefined;
+  let email: { from: string; to: string[]; subject: string; html: string; text: string } | undefined;
   const fetchMock = mock.method(globalThis, "fetch", async (url: Parameters<typeof fetch>[0], options?: RequestInit) => {
     assert.equal(url, "https://api.resend.com/emails");
     email = JSON.parse(String(options?.body));
@@ -174,20 +184,173 @@ test("an owner can send a stored invoice, and client-supplied invoice details ca
       transaction: { invoiceId: invoice.id, amount: "999 ETH", customerName: "Fake customer", description: "Fake title" },
     }));
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
     assert.ok(email);
+    assert.equal(email.from, invoiceSender);
     assert.deepEqual(email.to, ["customer@example.com"]);
     assert.equal(email.subject, `Invoice ${invoice.id} from Stored company`);
     assert.match(email.html, /0\.0025 ETH/);
     assert.match(email.html, /Stored customer/);
     assert.match(email.html, /Stored invoice title/);
     assert.doesNotMatch(email.html, /Fake company|Fake customer|Fake title|999 ETH/);
+    assert.match(email.text, /Amount: 0\.0025 ETH/);
+    assert.match(email.text, /Hi Stored customer,/);
+    assert.match(email.text, /Description: Stored invoice title/);
+    assert.match(email.text, /Due: 2028-02-29/);
+    assert.doesNotMatch(email.text, /Fake company|Fake customer|Fake title|999 ETH/);
     const result = await response.json();
     assert.deepEqual(Object.keys(result).sort(), ["ok", "paymentLink", "provider"]);
     const paymentUrl = new URL(result.paymentLink);
+    assert.equal(paymentUrl.origin, publicOrigin);
     assert.equal(paymentUrl.search, "");
     assert.ok(paymentUrl.pathname.endsWith(`/${invoice.id}`));
+    assert.ok(email.html.includes(`href="${result.paymentLink}"`));
+    assert.ok(email.text.includes(`View invoice: ${result.paymentLink}`));
     assert.equal(fetchMock.mock.callCount(), 1);
   } finally {
     fetchMock.mock.restore();
+  }
+});
+
+test("invoice email retries share an idempotency key while separate sends remain independent", async () => {
+  const invoice = await createOwnedInvoice();
+  const secondInvoice = await createOwnedInvoice();
+  const anotherOwner = "did:privy:another-user";
+  const anotherOwnerInvoice = await createOwnedInvoice(anotherOwner);
+  const deliveries: { key: string | null; body: string }[] = [];
+  const fetchMock = mock.method(globalThis, "fetch", async (_url: Parameters<typeof fetch>[0], options?: RequestInit) => {
+    const headers = new Headers(options?.headers);
+    assert.ok(options?.signal instanceof AbortSignal);
+    deliveries.push({ key: headers.get("Idempotency-Key"), body: String(options?.body) });
+    return Response.json({ id: "accepted-invoice-email" });
+  });
+  const requestId = "send-dialog-1234567890";
+  const send = async (invoiceId: string, customerEmail = "customer@example.com", nextRequestId = requestId, userId = fixtureUserId) => {
+    const response = await emailRoute.POST(request("/api/send-receipt", auth.token({ userId }), {
+      invoiceId, customerEmail, requestId: nextRequestId,
+    }));
+    assert.equal(response.status, 200);
+  };
+  try {
+    await send(invoice.id);
+    await send(invoice.id);
+    await send(invoice.id, "another@example.com");
+    await send(secondInvoice.id);
+    await send(invoice.id, "customer@example.com", "new-send-dialog-1234567890");
+    await send(anotherOwnerInvoice.id, "customer@example.com", requestId, anotherOwner);
+    assert.match(deliveries[0].key ?? "", /^invoice-email\/[a-f0-9]{64}$/);
+    assert.equal(deliveries[0].key, deliveries[1].key);
+    assert.equal(deliveries[0].body, deliveries[1].body);
+    assert.equal(new Set(deliveries.map(({ key }) => key)).size, 5);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("missing sender uses Resend's test sender and explains its recipient restriction", async () => {
+  const invoice = await createOwnedInvoice();
+  delete process.env.RESEND_FROM;
+  const fetchMock = mock.method(globalThis, "fetch", async (_url: Parameters<typeof fetch>[0], options?: RequestInit) => {
+    assert.equal(JSON.parse(String(options?.body)).from, "Snitch <onboarding@resend.dev>");
+    return Response.json({
+      name: "validation_error",
+      message: "You can only send testing emails to your own email address (private-owner@example.com).",
+    }, { status: 403 });
+  });
+  try {
+    const response = await emailRoute.POST(request("/api/send-receipt", auth.token(), {
+      invoiceId: invoice.id, customerEmail: "customer@example.com",
+    }));
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    const result = await response.json();
+    assert.match(result.error, /test sender can only email the Resend account owner/);
+    assert.match(result.error, /verified sending domain/);
+    assert.doesNotMatch(result.error, /private-owner@example\.com/);
+    assert.equal(result.ok, undefined);
+  } finally {
+    fetchMock.mock.restore();
+    process.env.RESEND_FROM = invoiceSender;
+  }
+});
+
+test("email provider errors do not claim delivery or expose raw service details", async () => {
+  const invoice = await createOwnedInvoice();
+  const scenarios = [
+    { status: 401, message: /Check the Resend API key and sending domain/ },
+    { status: 403, message: /Check the Resend API key and sending domain/ },
+    { status: 429, message: /sending limit was reached/ },
+    { status: 500, message: /Unable to send this invoice email/ },
+  ];
+  for (const scenario of scenarios) {
+    const fetchMock = mock.method(globalThis, "fetch", async () => Response.json({
+      message: "Sensitive service detail: test-resend-key",
+    }, { status: scenario.status }));
+    try {
+      const response = await emailRoute.POST(request("/api/send-receipt", auth.token(), {
+        invoiceId: invoice.id, customerEmail: "customer@example.com",
+      }));
+      assert.equal(response.status, 502);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const result = await response.json();
+      assert.match(result.error, scenario.message);
+      assert.doesNotMatch(result.error, /Sensitive service detail|test-resend-key/);
+      assert.equal(result.ok, undefined);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  }
+});
+
+test("network failures and unconfirmed provider responses remain retryable failures", async () => {
+  const invoice = await createOwnedInvoice();
+  const scenarios = [
+    { response: async () => { throw new DOMException("Timed out", "TimeoutError"); }, error: /did not respond/ },
+    { response: async () => Response.json({}), error: /did not confirm sending/ },
+    { response: async () => Response.json({ id: "" }), error: /did not confirm sending/ },
+    { response: async () => new Response("not-json"), error: /did not confirm sending/ },
+  ];
+  for (const scenario of scenarios) {
+    const fetchMock = mock.method(globalThis, "fetch", scenario.response);
+    try {
+      const response = await emailRoute.POST(request("/api/send-receipt", auth.token(), {
+        invoiceId: invoice.id, customerEmail: "customer@example.com", requestId: "retry-email-1234567890",
+      }));
+      assert.equal(response.status, 502);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const result = await response.json();
+      assert.match(result.error, scenario.error);
+      assert.equal(result.ok, undefined);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  }
+});
+
+test("invalid email configuration and malformed send requests never reach Resend", async () => {
+  const invoice = await createOwnedInvoice();
+  const fetchMock = mock.method(globalThis, "fetch", async () => {
+    assert.fail("Invalid requests and email configuration must not reach Resend.");
+  });
+  const body = { invoiceId: invoice.id, customerEmail: "customer@example.com" };
+  try {
+    for (const customerEmail of ["invalid", "Other <customer@example.com>", "customer@example.com\r\nBcc:other@example.com"]) {
+      assert.equal((await emailRoute.POST(request("/api/send-receipt", auth.token(), { ...body, customerEmail }))).status, 400);
+    }
+    assert.equal((await emailRoute.POST(request("/api/send-receipt", auth.token(), { ...body, requestId: "short" }))).status, 400);
+    delete process.env.RESEND_API_KEY;
+    const missingKey = await emailRoute.POST(request("/api/send-receipt", auth.token(), body));
+    assert.equal(missingKey.status, 503);
+    assert.deepEqual(await missingKey.json(), { error: "Invoice email is not configured." });
+    process.env.RESEND_API_KEY = "test-resend-key";
+    process.env.RESEND_FROM = "Snitch <onboarding@resend.dev>\r\nBcc: other@example.com";
+    const invalidSender = await emailRoute.POST(request("/api/send-receipt", auth.token(), body));
+    assert.equal(invalidSender.status, 503);
+    assert.deepEqual(await invalidSender.json(), { error: "The invoice email sender is not configured correctly." });
+    assert.equal(fetchMock.mock.callCount(), 0);
+  } finally {
+    fetchMock.mock.restore();
+    process.env.RESEND_API_KEY = "test-resend-key";
+    process.env.RESEND_FROM = invoiceSender;
   }
 });

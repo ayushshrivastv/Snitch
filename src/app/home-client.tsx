@@ -1164,6 +1164,7 @@ function SendInvoiceModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [emailRequestId] = useState(() => crypto.randomUUID());
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const requiresSignIn = !session || needsSignIn;
 
@@ -1200,9 +1201,9 @@ function SendInvoiceModal({
                 Authorization: `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
-                accountName,
                 customerEmail: emailToSend,
-                transaction,
+                invoiceId: transaction.invoiceId,
+                requestId: emailRequestId,
               }),
             });
             const result = (await response.json().catch(() => null)) as

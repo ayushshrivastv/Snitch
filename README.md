@@ -42,10 +42,13 @@ Open [127.0.0.1:3000](http://127.0.0.1:3000). The public preview is available at
 | `TURSO_AUTH_TOKEN` | Server-only database-scoped read/write credential. |
 | `SNITCH_DATA_DIR` | Local database directory; defaults to `.data`. Only persistent Node hosts may use local files in production. |
 | `SNITCH_PUBLIC_ORIGIN` | Public frontend origin used by the backend when it generates hosted checkout links. |
-| `RESEND_API_KEY` | Optional email credential. The current sender is Resend's development sender; configure an approved sender before general delivery. |
+| `RESEND_API_KEY` | Server-only Resend credential for sending saved invoices by email. |
+| `RESEND_FROM` | Sender name and address; defaults to `Snitch <onboarding@resend.dev>`. The test sender can email only the Resend account owner. |
 | `NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS` | Legacy invoice-helper fallback. Authenticated invoice creation always uses the stored company wallet. |
 
 Keep `.env.local`, database files, tokens, and private keys out of source control. Variables beginning with `NEXT_PUBLIC_` are browser-visible; never place server credentials there.
+
+See [invoice email setup](docs/invoice-email.md) for Resend configuration and delivery checks.
 
 ## Storage and wallet authority
 

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { getInvoiceForOwner, type Invoice } from "@/lib/invoices";
@@ -8,7 +9,7 @@ function text(value: unknown) {
 }
 
 function isEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return value.length <= 254 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
 }
 
 function escapeHtml(value: string) {
@@ -53,6 +54,11 @@ export async function POST(request: Request) {
     ? body.transaction as Record<string, unknown>
     : undefined;
   const invoiceId = (text(body.invoiceId) || text(transaction?.invoiceId)).toUpperCase();
+  const requestId = text(body.requestId) || randomUUID();
+
+  if (!/^[a-zA-Z0-9_-]{16,128}$/.test(requestId)) {
+    return NextResponse.json({ error: "Invalid email request. Reopen the send dialog and try again." }, { status: 400 });
+  }
 
   if (!isEmail(customerEmail)) {
     return NextResponse.json(
@@ -84,12 +90,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
   if (!resendApiKey) {
     return NextResponse.json(
       { error: "Invoice email is not configured." },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
+  }
+
+  const from = process.env.RESEND_FROM?.trim() || "Snitch <onboarding@resend.dev>";
+  const senderAddress = from.match(/<([^<>]+)>$/)?.[1] || from;
+  if (/[\r\n]/.test(from) || !isEmail(senderAddress)) {
+    return NextResponse.json({ error: "The invoice email sender is not configured correctly." }, {
+      status: 503, headers: { "Cache-Control": "no-store" },
+    });
   }
 
   const origin = process.env.SNITCH_PUBLIC_ORIGIN?.trim() || new URL(request.url).origin;
@@ -119,7 +133,7 @@ export async function POST(request: Request) {
         <p style="font-size:13px;color:#6b7280;margin:0 0 6px;">Invoice details</p>
         <p style="font-size:15px;margin:0;">${escapeHtml(description)}</p>
       </div>
-      <a href="${paymentLink}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:600;">
+      <a href="${escapeHtml(paymentLink)}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:600;">
         View invoice
       </a>
       <p style="font-size:13px;color:#6b7280;margin:22px 0 0;">
@@ -127,6 +141,22 @@ export async function POST(request: Request) {
       </p>
     </div>
   `;
+
+  const plainText = [
+    `Invoice ${invoiceId} from ${accountName}`,
+    `Hi ${customerName},`,
+    `Amount: ${amount}`,
+    `Description: ${description}`,
+    `Due: ${storedInvoice.dueDate}`,
+    `View invoice: ${paymentLink}`,
+    storedInvoice.treasury
+      ? "Use Sepolia test ETH to pay this invoice. This is a testnet payment."
+      : "Payments are unavailable until a merchant treasury is configured for a new invoice.",
+  ].join("\n\n");
+  // Retrying the same send dialog cannot duplicate a provider-accepted email.
+  // The key is scoped to the verified owner, invoice, and selected recipient.
+  const idempotencyKey = createHash("sha256")
+    .update(JSON.stringify([auth.userId, invoiceId, customerEmail, requestId])).digest("hex");
 
   let resendResponse: Response;
 
@@ -137,29 +167,49 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
         "User-Agent": "snitch-dashboard/0.1",
+        "Idempotency-Key": `invoice-email/${idempotencyKey}`,
       },
+      signal: AbortSignal.timeout(20000),
       body: JSON.stringify({
-        from: "Snitchpay.co <onboarding@resend.dev>",
+        from,
         to: [customerEmail],
         subject: `Invoice ${invoiceId} from ${accountName}`,
         html,
+        text: plainText,
       }),
     });
   } catch {
     return NextResponse.json(
       {
         error:
-          "Unable to reach Resend from local dev. Check network access and try again.",
+          "The email service did not respond. Please try again.",
       },
-      { status: 502 },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
     );
   }
 
   if (!resendResponse.ok) {
+    const detail = await resendResponse.json().catch(() => null);
+    const testRecipientRestricted = resendResponse.status === 403 &&
+      typeof detail?.message === "string" && /only send testing emails/i.test(detail.message);
+    const error = testRecipientRestricted
+      ? "Resend’s test sender can only email the Resend account owner. Use that email address or configure a verified sending domain."
+      : resendResponse.status === 401 || resendResponse.status === 403
+        ? "The email service rejected this sender. Check the Resend API key and sending domain."
+        : resendResponse.status === 429
+          ? "The email sending limit was reached. Please try again later."
+          : "Unable to send this invoice email. Please try again.";
     return NextResponse.json(
-      { error: "Unable to send this invoice email. Please try again." },
+      { error },
       { status: 502, headers: { "Cache-Control": "no-store" } },
     );
+  }
+
+  const delivery = await resendResponse.json().catch(() => null);
+  if (typeof delivery?.id !== "string" || !delivery.id) {
+    return NextResponse.json({ error: "The email service did not confirm sending. Please try again." }, {
+      status: 502, headers: { "Cache-Control": "no-store" },
+    });
   }
 
   return NextResponse.json({
