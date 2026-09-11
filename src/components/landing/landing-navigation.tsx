@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { FloatingNav, type FloatingNavItem } from '@/components/ui/floating-navbar';
+import { LandingLoginButton } from '@/components/auth/landing-login-button';
 import type { OpenDialog } from './types';
 import './landing-navigation.css';
 
@@ -55,6 +56,7 @@ export function LandingNavigation({ onOpenDialog }: { onOpenDialog: OpenDialog }
     <FloatingNav
       className={`snitch-landing-nav${onLightSection ? ' snitch-landing-nav-light' : ''}`}
       navItems={navItems}
+      loginControl={<LandingLoginButton />}
       brand={
         <Link href="/" aria-label="Snitch home" className="snitch-landing-nav-brand flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4">
           <Image src="/snitch-logo.png" alt="" width={32} height={32} priority className="size-8 object-contain" />
