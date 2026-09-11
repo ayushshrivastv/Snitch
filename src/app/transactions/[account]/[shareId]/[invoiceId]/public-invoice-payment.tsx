@@ -181,18 +181,18 @@ export function PublicInvoicePayment({
             type="button"
             disabled={(!available && !pendingHash) || !statusReady || isBusy}
             onClick={() => void handlePayment()}
-            className="min-h-11 w-full whitespace-normal rounded-lg text-sm font-medium"
+            className="min-h-12 w-full whitespace-normal rounded-lg text-sm font-medium"
           >
             {isBusy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isBusy
-              ? pendingHash ? "Confirming payment…" : "Continue in wallet…"
+              ? pendingHash ? "Confirming payment…" : "Connecting wallet…"
               : pendingHash
                 ? "Check payment status"
-                : available ? `Pay ${amount} ETH` : "Payments unavailable"}
+                : available ? "Pay" : "Payments unavailable"}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            {available ? "Continue with an Ethereum wallet on Sepolia." : unavailableReason}
-          </p>
+          {!available && !pendingHash ? (
+            <p className="text-center text-xs text-muted-foreground">{unavailableReason}</p>
+          ) : null}
           {message ? (
             <p role="status" aria-live="polite" className="text-center text-sm text-muted-foreground">
               {message}
