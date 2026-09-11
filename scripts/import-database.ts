@@ -13,9 +13,15 @@ const columns = {
   invoices: ["id", "owner_id", "company_id", "created_at", "payload"],
   invoice_payments: ["invoice_id", "transaction_hash", "payload"],
   company_payouts: ["id", "company_id", "owner_user_id", "transaction_hash", "sender", "recipient", "amount", "receiver_name", "memo", "status", "created_at", "updated_at", "block_number", "confirmed_at"],
+  invoice_payment_attempts: ["transaction_hash", "invoice_id", "status", "created_at", "updated_at"],
+  invoice_payment_submissions: ["invoice_id", "transaction_hash", "created_at", "next_check_at", "attempts"],
+  company_payout_submissions: ["id", "company_id", "owner_user_id", "transaction_hash", "sender", "recipient", "amount", "receiver_name", "memo", "created_at", "updated_at", "attempts", "next_check_at"],
 } as const;
 type ImportTable = keyof typeof columns;
 const importTables = Object.keys(columns) as ImportTable[];
+// Version 1 backups predate recovery tables. Existing version 2 rows must be
+// copied exactly so pending broadcasts can resume without resending funds.
+const recoveryTables = new Set<ImportTable>(["invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions"]);
 const targetTables = [...importTables, "wallet_export_approvals"] as const;
 type TargetTable = typeof targetTables[number];
 
@@ -64,6 +70,11 @@ export function readDatabaseSnapshot(source: string): DatabaseSnapshot {
     const rows = {} as DatabaseSnapshot["rows"];
     const counts = {} as DatabaseSnapshot["counts"];
     for (const table of importTables) {
+      if (!tables.has(table) && recoveryTables.has(table)) {
+        rows[table] = [];
+        counts[table] = 0;
+        continue;
+      }
       if (!tables.has(table)) throw new DatabaseImportError("The source backup is missing a required application table.");
       const actualColumns = db.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name).sort();
       if (JSON.stringify(actualColumns) !== JSON.stringify([...columns[table]].sort())) {

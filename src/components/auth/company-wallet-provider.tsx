@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { useCreateWallet, useExportWallet, useSendTransaction, useSignMessage } from "@privy-io/react-auth";
+import { useCreateWallet, useExportWallet, useSendTransaction, useSignMessage, useWallets } from "@privy-io/react-auth";
 import type { CompanyAccount } from "@/lib/company-types";
 import { approveCompanyWalletExport, type WalletExportStage } from "./company-wallet-export-request";
 import { useWorkspaceSession } from "./workspace-session";
@@ -21,7 +21,7 @@ type CompanyWalletContextValue = {
   deleteCompany: (companyId: string) => Promise<void>;
   exportCompanyWallet: (companyId: string, onStage?: (stage: WalletExportStage) => void, requestSignal?: AbortSignal) => Promise<void>;
   sendCompanyPayment: (companyId: string, payment: CompanyPaymentInput) => Promise<CompanyPaymentBroadcast>;
-  confirmCompanyPayment: (companyId: string, payment: CompanyPaymentInput & { transactionHash: string }) => Promise<CompanyPaymentConfirmation>;
+  confirmCompanyPayment: (companyId: string, payment: RecordCompanyPayoutInput) => Promise<CompanyPaymentConfirmation>;
   listCompanyPayouts: (companyId: string) => Promise<CompanyPayoutRecord[]>;
   recordCompanyPayout: (companyId: string, payment: RecordCompanyPayoutInput) => Promise<CompanyPayoutRecord>;
 };
@@ -34,6 +34,7 @@ export function CompanyWalletProvider({ children }: { children: ReactNode }) {
   const { exportWallet } = useExportWallet();
   const { signMessage } = useSignMessage();
   const { sendTransaction } = useSendTransaction();
+  const { wallets, ready: walletsReady } = useWallets();
   const [companies, setCompanies] = useState<CompanyAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -159,7 +160,18 @@ export function CompanyWalletProvider({ children }: { children: ReactNode }) {
       const company = (await reloadFor(signal)).find(item => item.id === companyId);
       signal.throwIfAborted();
       if (!company || !userId) throw new Error("Company account not found. Sign in again to continue.");
-      return await sendCompanyWalletPayment({ company, userId, input: payment, signal, sendTransaction });
+      if (!walletsReady) throw new Error("Your Privy wallet is still loading. Please try again shortly.");
+      if (!wallets.some(wallet => wallet.walletClientType === "privy" &&
+        wallet.address.toLowerCase() === company.wallet.address?.toLowerCase())) {
+        throw new Error("Sign in with the account that controls this company’s Privy wallet to send a payout.");
+      }
+      const send = () => sendCompanyWalletPayment({ company, userId, input: payment, signal, sendTransaction });
+      return navigator.locks
+        ? await navigator.locks.request(`snitch-company-send:${companyId}`, { ifAvailable: true }, async lock => {
+          if (!lock) throw new Error("A payout is awaiting approval in another tab. Finish it before sending another.");
+          return send();
+        })
+        : await send();
     } finally {
       if (lifetime.current?.signal === signal) sending.current = false;
     }

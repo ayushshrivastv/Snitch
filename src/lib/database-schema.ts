@@ -40,6 +40,21 @@ const schema = [
     transaction_hash TEXT COLLATE NOCASE NOT NULL UNIQUE,
     payload TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS invoice_payment_attempts (
+    transaction_hash TEXT PRIMARY KEY COLLATE NOCASE,
+    invoice_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('Incomplete', 'Failed', 'Succeeded')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS invoice_attempts_by_invoice ON invoice_payment_attempts(invoice_id, status, created_at DESC)",
+  `CREATE TABLE IF NOT EXISTS invoice_payment_submissions (
+    invoice_id TEXT NOT NULL, transaction_hash TEXT NOT NULL COLLATE NOCASE,
+    created_at TEXT NOT NULL, next_check_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(invoice_id, transaction_hash)
+  )`,
+  "CREATE INDEX IF NOT EXISTS invoice_submissions_due ON invoice_payment_submissions(invoice_id, next_check_at)",
   `CREATE TABLE IF NOT EXISTS company_payouts (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
     transaction_hash TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -50,6 +65,15 @@ const schema = [
     block_number INTEGER, confirmed_at TEXT
   )`,
   "CREATE INDEX IF NOT EXISTS payouts_by_company_owner ON company_payouts(company_id, owner_user_id, created_at)",
+  `CREATE TABLE IF NOT EXISTS company_payout_submissions (
+    id TEXT PRIMARY KEY, company_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
+    transaction_hash TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    sender TEXT NOT NULL, recipient TEXT NOT NULL, amount TEXT NOT NULL,
+    receiver_name TEXT NOT NULL, memo TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0, next_check_at TEXT NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS payout_submissions_by_company_owner ON company_payout_submissions(company_id, owner_user_id, next_check_at)",
   `CREATE TABLE IF NOT EXISTS snitch_schema_migrations (
     version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
   )`,
@@ -59,7 +83,9 @@ const schema = [
 async function schemaIsCurrent(client: Client | Transaction): Promise<boolean> {
   const exists = await client.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'snitch_schema_migrations'");
   if (!exists.rows.length) return false;
-  const version = await client.execute("SELECT 1 FROM snitch_schema_migrations WHERE version = 1");
+  const version = await client.execute(`SELECT 1 FROM snitch_schema_migrations WHERE version = 2
+    AND (SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
+      AND name IN ('invoice_payment_attempts', 'invoice_payment_submissions', 'company_payout_submissions')) = 3`);
   return version.rows.length === 1;
 }
 
@@ -94,7 +120,7 @@ async function applySchema(client: Client): Promise<void> {
     }
     await transaction.batch(schema);
     await transaction.execute({
-      sql: "INSERT OR IGNORE INTO snitch_schema_migrations (version, applied_at) VALUES (1, ?)",
+      sql: "INSERT OR IGNORE INTO snitch_schema_migrations (version, applied_at) VALUES (2, ?)",
       args: [new Date().toISOString()],
     });
     await transaction.commit();

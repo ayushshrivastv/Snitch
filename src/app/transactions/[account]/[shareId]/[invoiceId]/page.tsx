@@ -6,7 +6,7 @@ import { getConfirmedPayment } from "@/lib/payment-confirmations";
 import { getInvoice } from "@/lib/invoices";
 import { formatRecordDateTime, formatSavedRecordDate } from "@/lib/record-date";
 import { TEST_INVOICE_AMOUNT_ETH } from "../../../../../../services/ethereum";
-import { PublicInvoicePayment } from "./public-invoice-payment";
+import { PublicInvoiceCheckout, PublicInvoicePayment } from "./public-invoice-payment";
 
 type InvoicePageProps = {
   params: Promise<{
@@ -183,6 +183,21 @@ export default async function PublicInvoicePage({
         </span>
       </header>
 
+      <PublicInvoiceCheckout
+        key={decodedInvoiceId}
+        invoiceId={decodedInvoiceId}
+        merchantName={merchantName}
+        completed={isCompleted}
+        amount={invoice.amount}
+        treasury={storedInvoice?.treasury}
+        available={Boolean(storedInvoice?.treasury && !expired)}
+        unavailableReason={expired
+          ? "This invoice has expired. Check any payment already submitted."
+          : storedInvoice
+            ? "The company wallet is not ready to receive payment."
+            : "This invoice preview cannot accept payment."}
+        explorerUrl={confirmedPayment?.explorerUrl}
+      >
       <section className="mx-auto flex min-h-0 w-full max-w-[420px] flex-1 items-center justify-center py-3 sm:py-5">
         <section
           aria-labelledby="payment-title"
@@ -233,20 +248,7 @@ export default async function PublicInvoicePage({
           </dl>
 
           <div id="payment-request" className="w-full">
-            <PublicInvoicePayment
-              key={decodedInvoiceId}
-              invoiceId={decodedInvoiceId}
-              completed={isCompleted}
-              amount={invoice.amount}
-              treasury={storedInvoice?.treasury}
-              available={Boolean(storedInvoice?.treasury && !expired)}
-              unavailableReason={expired
-                ? "This invoice has expired. Check any payment already submitted."
-                : storedInvoice
-                  ? "The company wallet is not ready to receive payment."
-                  : "This invoice preview cannot accept payment."}
-              explorerUrl={confirmedPayment?.explorerUrl}
-            />
+            <PublicInvoicePayment />
           </div>
 
           <div className="relative -mx-7 mt-6 sm:-mx-9" aria-hidden="true">
@@ -264,6 +266,7 @@ export default async function PublicInvoicePage({
           </div>
         </section>
       </section>
+      </PublicInvoiceCheckout>
     </main>
   );
 }

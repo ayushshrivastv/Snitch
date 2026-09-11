@@ -151,9 +151,13 @@ export type EthereumPaymentReader = {
   } | null>;
   getTransactionReceipt(hash: string): Promise<{
     hash: string;
+    from: string;
+    to: string | null;
     status: number | null;
     blockNumber: number;
+    blockHash: string;
   } | null>;
+  getBlock(blockNumber: number): Promise<{ hash: string | null; timestamp: number } | null>;
 };
 
 export class PaymentVerificationError extends Error {
@@ -171,11 +175,13 @@ export async function verifyEthPayment({
   invoice,
   transactionHash,
   provider,
+  onTransactionVerified,
 }: {
   invoice: { id: string; amount: string; treasury: string; chainId: number };
   transactionHash: string;
   provider: EthereumPaymentReader;
-}): Promise<{ payer: string; treasury: string; blockNumber: number }> {
+  onTransactionVerified?: () => Promise<void>;
+}): Promise<{ payer: string; treasury: string; blockNumber: number; confirmedAt: string }> {
   if (!isEthereumTransactionHash(transactionHash)) {
     throw new PaymentVerificationError("Invalid Ethereum transaction hash.", 400);
   }
@@ -183,23 +189,13 @@ export async function verifyEthPayment({
   if (network.chainId !== BigInt(ETHEREUM_CHAIN_ID) || invoice.chainId !== ETHEREUM_CHAIN_ID) {
     throw new PaymentVerificationError("Payment verification requires Ethereum Sepolia.", 503);
   }
-  const [transaction, receipt] = await Promise.all([
-    provider.getTransaction(transactionHash),
-    provider.getTransactionReceipt(transactionHash),
-  ]);
-  if (!transaction || !receipt) {
-    throw new PaymentVerificationError("The transaction is not confirmed yet. Check its status again shortly.", 202);
-  }
-  if (receipt.status === 0) {
-    throw new PaymentVerificationError("The Ethereum transaction reverted. You can submit a new payment.", 422, "transaction_reverted");
-  }
-  if (receipt.status !== 1) {
-    throw new PaymentVerificationError("The transaction receipt is not confirmed yet.", 202);
+  const transaction = await provider.getTransaction(transactionHash);
+  if (!transaction) {
+    throw new PaymentVerificationError("The transaction is not indexed yet. Check its status again shortly; do not send another payment.", 202, "transaction_not_indexed");
   }
   const treasury = normalizeEthereumAddress(invoice.treasury);
   if (
     transaction.hash.toLowerCase() !== transactionHash.toLowerCase() ||
-    receipt.hash.toLowerCase() !== transactionHash.toLowerCase() ||
     transaction.chainId !== BigInt(ETHEREUM_CHAIN_ID) ||
     !transaction.to ||
     normalizeEthereumAddress(transaction.to) !== treasury ||
@@ -208,5 +204,31 @@ export async function verifyEthPayment({
   ) {
     throw new PaymentVerificationError("This transaction does not match the invoice's recipient, ETH amount, or reference.", 422);
   }
-  return { payer: normalizeEthereumAddress(transaction.from), treasury, blockNumber: receipt.blockNumber };
+  const payer = normalizeEthereumAddress(transaction.from);
+  // Save the bound broadcast before awaiting mining. A later request can finish
+  // verification even when the payer closes checkout or changes login sessions.
+  await onTransactionVerified?.();
+  const receipt = await provider.getTransactionReceipt(transactionHash);
+  if (!receipt || receipt.status === null) {
+    throw new PaymentVerificationError("The transaction is awaiting confirmation. Its progress has been saved.", 202, "transaction_pending");
+  }
+  if (receipt.hash.toLowerCase() !== transactionHash.toLowerCase() ||
+    normalizeEthereumAddress(receipt.from) !== payer || !receipt.to ||
+    normalizeEthereumAddress(receipt.to) !== treasury) {
+    throw new PaymentVerificationError("This receipt does not match the invoice payment.", 422);
+  }
+  if ((receipt.status !== 0 && receipt.status !== 1) || !Number.isSafeInteger(receipt.blockNumber) || receipt.blockNumber < 1) {
+    throw new PaymentVerificationError("The transaction receipt is not valid.", 502);
+  }
+  const block = await provider.getBlock(receipt.blockNumber);
+  if (!block?.hash || block.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) {
+    throw new PaymentVerificationError("The transaction is awaiting a canonical block confirmation.", 202, "transaction_pending");
+  }
+  if (!Number.isSafeInteger(block.timestamp) || block.timestamp < 1 || block.timestamp > 8640000000000) {
+    throw new PaymentVerificationError("The transaction timestamp is not available.", 502);
+  }
+  if (receipt.status === 0) {
+    throw new PaymentVerificationError("The Ethereum transaction reverted. You can submit a new payment.", 422, "transaction_reverted");
+  }
+  return { payer, treasury, blockNumber: receipt.blockNumber, confirmedAt: new Date(block.timestamp * 1000).toISOString() };
 }

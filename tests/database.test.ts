@@ -24,12 +24,35 @@ test("one initialization creates the full shared schema and preserves records af
     const database = temporary.open();
     await database.ready();
     const tables = (await database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()).map(row => row.name);
-    for (const name of ["companies", "wallet_export_approvals", "invoices", "invoice_payments", "company_payouts"]) assert.ok(tables.includes(name));
+    for (const name of ["companies", "wallet_export_approvals", "invoices", "invoice_payments", "invoice_payment_attempts", "invoice_payment_submissions", "company_payouts", "company_payout_submissions"]) assert.ok(tables.includes(name));
     await database.prepare("INSERT INTO invoices (id, created_at, payload) VALUES (?, ?, ?)").run("INV-PERSIST", "2026-09-11", "{}");
     database.close();
     const reopened = temporary.open();
     assert.equal((await reopened.prepare("SELECT id FROM invoices").get())?.id, "INV-PERSIST");
     assert.equal((await reopened.prepare("SELECT COUNT(*) AS count FROM snitch_schema_migrations").get())?.count, 1);
+  } finally { temporary.close(); }
+});
+
+test("the payment recovery migration preserves existing production invoices and receipts", async () => {
+  const temporary = fixture();
+  try {
+    const original = temporary.open();
+    await original.prepare("INSERT INTO invoices (id, created_at, payload) VALUES (?, ?, ?)").run("INV-MIGRATE", "2026-09-11", '{"amount":"0.001"}');
+    await original.prepare("INSERT INTO invoice_payments (invoice_id, transaction_hash, payload) VALUES (?, ?, ?)").run("INV-MIGRATE", "0xabc", '{"status":"Succeeded"}');
+    original.close();
+    const previousVersion = new DatabaseSync(temporary.path);
+    previousVersion.exec(`DROP TABLE invoice_payment_attempts; DROP TABLE invoice_payment_submissions;
+      DROP TABLE company_payout_submissions; UPDATE snitch_schema_migrations SET version = 1`);
+    previousVersion.close();
+    const migrated = temporary.open();
+    const concurrent = temporary.open();
+    await Promise.all([migrated.ready(), concurrent.ready()]);
+    assert.equal((await migrated.prepare("SELECT payload FROM invoices WHERE id = 'INV-MIGRATE'").get())?.payload, '{"amount":"0.001"}');
+    assert.equal((await migrated.prepare("SELECT payload FROM invoice_payments WHERE invoice_id = 'INV-MIGRATE'").get())?.payload, '{"status":"Succeeded"}');
+    for (const table of ["invoice_payment_attempts", "invoice_payment_submissions", "company_payout_submissions"]) {
+      assert.equal((await migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table))?.name, table);
+    }
+    assert.equal((await migrated.prepare("SELECT version FROM snitch_schema_migrations WHERE version = 2").get())?.version, 2);
   } finally { temporary.close(); }
 });
 

@@ -9,6 +9,12 @@ export type CompanyInvoiceRecord = Invoice & {
 export class PaymentConfirmationConflictError extends Error {}
 export class InvoiceCompanyConflictError extends Error {}
 type JsonRow = { payload: string };
+export type InvoicePaymentAttempt = {
+  invoiceId: string;
+  transactionHash: string;
+  status: "Incomplete" | "Failed" | "Succeeded";
+  createdAt: string;
+};
 
 /** Public invoice data and verified receipts only. Wallet signing material never enters this store. */
 export class InvoiceStore {
@@ -72,6 +78,69 @@ export class InvoiceStore {
     return row?.invoice_id;
   }
 
+  /** Untrusted hashes are recovery hints only and never make an invoice appear paid or locked. */
+  async savePaymentSubmission(invoiceId: string, hash: string): Promise<void> {
+    await this.db.transaction(async () => {
+      if (!await this.getInvoice(invoiceId)) throw new PaymentConfirmationConflictError("Invoice not found.");
+      const now = new Date().toISOString();
+      const oldest = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      await this.db.prepare("DELETE FROM invoice_payment_submissions WHERE invoice_id = ? AND created_at < ?").run(invoiceId, oldest);
+      await this.db.prepare(`INSERT INTO invoice_payment_submissions (invoice_id, transaction_hash, created_at, next_check_at)
+        SELECT ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM invoice_payment_submissions WHERE invoice_id = ?) < 32
+        ON CONFLICT(invoice_id, transaction_hash) DO NOTHING`).run(invoiceId, hash.toLowerCase(), now, now, invoiceId);
+    });
+  }
+
+  async getDuePaymentSubmissions(invoiceId: string): Promise<string[]> {
+    const rows = await this.db.prepare(`SELECT transaction_hash FROM invoice_payment_submissions
+      WHERE invoice_id = ? AND next_check_at <= ? AND created_at >= ?
+      ORDER BY next_check_at, created_at LIMIT 4`).all(invoiceId, new Date().toISOString(), new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+    return rows.map(row => row.transaction_hash as string);
+  }
+
+  async deferPaymentSubmission(invoiceId: string, hash: string): Promise<void> {
+    const row = await this.db.prepare("SELECT attempts FROM invoice_payment_submissions WHERE invoice_id = ? AND transaction_hash = ?").get(invoiceId, hash.toLowerCase());
+    if (!row) return;
+    const delay = Math.min(300_000, 5_000 * 2 ** Math.min(Number(row.attempts), 6));
+    await this.db.prepare(`UPDATE invoice_payment_submissions SET attempts = attempts + 1, next_check_at = ?
+      WHERE invoice_id = ? AND transaction_hash = ?`).run(new Date(Date.now() + delay).toISOString(), invoiceId, hash.toLowerCase());
+  }
+
+  async removePaymentSubmission(invoiceId: string, hash: string): Promise<void> {
+    await this.db.prepare("DELETE FROM invoice_payment_submissions WHERE invoice_id = ? AND transaction_hash = ?").run(invoiceId, hash.toLowerCase());
+  }
+
+  /** Only call after verifying the transaction's chain, amount, treasury, and invoice calldata. */
+  async savePaymentAttempt(invoiceId: string, hash: string): Promise<void> {
+    const transactionHash = hash.toLowerCase();
+    await this.db.transaction(async () => {
+      const invoice = await this.getInvoice(invoiceId);
+      if (!invoice) throw new PaymentConfirmationConflictError("Invoice not found.");
+      const linked = await this.db.prepare("SELECT invoice_id FROM invoice_payment_attempts WHERE transaction_hash = ?").get(transactionHash);
+      if (linked && linked.invoice_id !== invoiceId) throw new PaymentConfirmationConflictError("This transaction is already tied to another invoice.");
+      const confirmed = await this.getInvoiceIdForTransaction(transactionHash);
+      if (confirmed && confirmed !== invoiceId) throw new PaymentConfirmationConflictError("This transaction is already tied to another invoice.");
+      const now = new Date().toISOString();
+      await this.db.prepare(`INSERT INTO invoice_payment_attempts (transaction_hash, invoice_id, status, created_at, updated_at)
+        VALUES (?, ?, 'Incomplete', ?, ?) ON CONFLICT(transaction_hash) DO NOTHING`)
+        .run(transactionHash, invoiceId, now, now);
+      await this.db.prepare("DELETE FROM invoice_payment_submissions WHERE transaction_hash = ?").run(transactionHash);
+    });
+  }
+
+  async getPaymentAttempts(invoiceId: string): Promise<InvoicePaymentAttempt[]> {
+    const rows = await this.db.prepare(`SELECT invoice_id, transaction_hash, status, created_at FROM invoice_payment_attempts
+      WHERE invoice_id = ? ORDER BY created_at DESC, transaction_hash`).all(invoiceId);
+    return rows.map(row => ({ invoiceId: row.invoice_id as string, transactionHash: row.transaction_hash as string,
+      status: row.status as InvoicePaymentAttempt["status"], createdAt: row.created_at as string }));
+  }
+
+  async markPaymentAttemptFailed(invoiceId: string, hash: string): Promise<void> {
+    await this.db.prepare(`UPDATE invoice_payment_attempts SET status = 'Failed', updated_at = ?
+      WHERE invoice_id = ? AND transaction_hash = ? AND status = 'Incomplete'`)
+      .run(new Date().toISOString(), invoiceId, hash.toLowerCase());
+  }
+
   async savePayment(payment: ConfirmedInvoicePayment): Promise<ConfirmedInvoicePayment> {
     const transactionHash = payment.transactionHash.toLowerCase();
     return this.db.transaction(async () => {
@@ -85,6 +154,9 @@ export class InvoiceStore {
         await this.db.prepare("INSERT INTO invoice_payments (invoice_id, transaction_hash, payload) VALUES (?, ?, ?)")
           .run(payment.invoiceId, transactionHash, JSON.stringify(confirmed));
       }
+      await this.db.prepare(`UPDATE invoice_payment_attempts SET status = 'Succeeded', updated_at = ?
+        WHERE invoice_id = ? AND transaction_hash = ?`).run(new Date().toISOString(), payment.invoiceId, transactionHash);
+      await this.db.prepare("DELETE FROM invoice_payment_submissions WHERE invoice_id = ?").run(payment.invoiceId);
       return confirmed;
     });
   }

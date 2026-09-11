@@ -26,6 +26,7 @@ import type { WalletActivity } from "@/lib/wallet-activity";
 import { formatRecordDateTime, formatSavedRecordDate } from "@/lib/record-date";
 import { resolveWalletCompany } from "@/lib/company-selection";
 import { requestCompanyWallet } from "@/components/auth/company-wallet-request";
+import { recordBroadcastCompanyPayout } from "@/components/auth/company-payment-request";
 import { readPendingCompanyPayouts, rememberPendingCompanyPayout, forgetPendingCompanyPayout, type PendingCompanyPayout } from "@/lib/pending-company-payouts";
 import type { Invoice } from "@/lib/invoices";
 import type { ConfirmedInvoicePayment } from "@/lib/payment-confirmations";
@@ -4263,34 +4264,59 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
         return next;
       });
     });
-    for (const company of companyWallets.companies) {
-      const accountId = company.purpose === "playground" ? DEMO_COMPANY_ID : company.id;
-      void companyWallets.listCompanyPayouts(company.id).then(records => {
-        if (controller.signal.aborted) return;
-        records.forEach(record => forgetPendingCompanyPayout(ownerId, record.transactionHash));
-        setPaymentRowsByAccount(current => ({ ...current, [accountId]: [
-          ...records.map(record => companyPayoutRow(record, true)),
-          ...(current[accountId] ?? []).filter(row => !records.some(record => record.transactionHash === row.transactionHash)),
-        ] }));
-      }).catch(() => undefined);
-      void requestCompanyWallet<{ invoices: Array<Invoice & {status: "Incomplete" | "Succeeded"; payment: ConfirmedInvoicePayment | null}> }>(
-        `/api/companies/${company.id}/invoices`, { signal: controller.signal, getAccessToken: session.getAccessToken },
-      ).then(({ invoices }) => {
-        if (controller.signal.aborted) return;
-        const rows: Transaction[] = invoices.map(invoice => ({
-          id: `TX_${invoice.id}`, companyId: accountId, walletCompanyId: company.id,
-          amount: invoice.amount, currency: invoice.currency, network: ETHEREUM_NETWORK_NAME,
-          dateTime: formatDateTime(new Date(invoice.createdAt)),
-          description: `${invoice.id} · ${invoice.title} from ${invoice.customerName}`,
-          customerName: invoice.customerName, invoiceId: invoice.id, invoiceTitle: invoice.title,
-          memo: invoice.memo, dueDate: invoice.dueDate, paymentTerms: invoice.paymentTerms,
-          treasuryAccount: invoice.treasuryAccount, status: invoice.status,
-          confirmedPayment: invoice.payment ?? undefined,
+    let refreshing = false;
+    async function refreshLedger() {
+      if (refreshing || controller.signal.aborted) return;
+      refreshing = true;
+      try {
+        await Promise.all(companyWallets!.companies.map(async company => {
+          const accountId = company.purpose === "playground" ? DEMO_COMPANY_ID : company.id;
+          const payoutsRequest = companyWallets!.listCompanyPayouts(company.id).then(records => {
+            if (controller.signal.aborted) return;
+            records.forEach(record => forgetPendingCompanyPayout(ownerId, record.transactionHash));
+            setPaymentRowsByAccount(current => ({ ...current, [accountId]: [
+              ...records.map(record => {
+                const previous = current[accountId]?.find(row => row.transactionHash === record.transactionHash);
+                return previous?.saved && previous.status !== "Incomplete" && record.status === "Incomplete"
+                  ? previous : companyPayoutRow(record, true);
+              }),
+              ...(current[accountId] ?? []).filter(row => !records.some(record => record.transactionHash === row.transactionHash)),
+            ] }));
+          }).catch(() => undefined);
+          const invoicesRequest = requestCompanyWallet<{ invoices: Array<Invoice & {status: "Incomplete" | "Succeeded"; payment: ConfirmedInvoicePayment | null}> }>(
+            `/api/companies/${company.id}/invoices`, { signal: controller.signal, getAccessToken: session!.getAccessToken },
+          ).then(({ invoices }) => {
+            if (controller.signal.aborted) return;
+            const rows: Transaction[] = invoices.map(invoice => ({
+              id: `TX_${invoice.id}`, companyId: accountId, walletCompanyId: company.id,
+              amount: invoice.amount, currency: invoice.currency, network: ETHEREUM_NETWORK_NAME,
+              dateTime: formatDateTime(new Date(invoice.createdAt)),
+              description: `${invoice.id} · ${invoice.title} from ${invoice.customerName}`,
+              customerName: invoice.customerName, invoiceId: invoice.id, invoiceTitle: invoice.title,
+              memo: invoice.memo, dueDate: invoice.dueDate, paymentTerms: invoice.paymentTerms,
+              treasuryAccount: invoice.treasuryAccount, status: invoice.status,
+              confirmedPayment: invoice.payment ?? undefined,
+            }));
+            setTransactionRows(current => [
+              ...rows.map(row => {
+                const previous = current.find(item => item.invoiceId === row.invoiceId && item.walletCompanyId === row.walletCompanyId);
+                return previous?.confirmedPayment?.status === "Succeeded" && !row.confirmedPayment ? previous : row;
+              }),
+              ...current.filter(row => !rows.some(record => record.invoiceId === row.invoiceId && record.walletCompanyId === row.walletCompanyId)),
+            ]);
+          }).catch(() => undefined);
+          await Promise.all([payoutsRequest, invoicesRequest]);
         }));
-        setTransactionRows(current => [...rows, ...current.filter(row => !rows.some(record => record.invoiceId === row.invoiceId && record.walletCompanyId === row.walletCompanyId))]);
-      }).catch(() => undefined);
+      } finally { refreshing = false; }
     }
-    return () => { controller.abort(); window.cancelAnimationFrame(recoveryFrame); };
+    void refreshLedger();
+    const interval = window.setInterval(() => void refreshLedger(), 15000);
+    window.addEventListener("focus", refreshLedger);
+    window.addEventListener("online", refreshLedger);
+    return () => {
+      controller.abort(); window.cancelAnimationFrame(recoveryFrame); window.clearInterval(interval);
+      window.removeEventListener("focus", refreshLedger); window.removeEventListener("online", refreshLedger);
+    };
   }, [companyWallets, session]);
 
   const visibleInstances = useMemo(
@@ -4437,6 +4463,8 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
     if (!companyWallets || !company || company.wallet.status !== "ready") {
       throw new Error("Connect this company’s Privy wallet before sending a payout.");
     }
+    const recordingToken = await session?.getAccessToken();
+    if (!recordingToken) throw new Error("Sign in again before sending this payout.");
     const sent = await companyWallets.sendCompanyPayment(company.id, {
       to: payout.receiverWallet, amount: payout.payoutAmount,
     });
@@ -4451,6 +4479,18 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
       ...currentRows,
       [accountId]: [row, ...(currentRows[accountId] ?? []).filter(item => item.transactionHash !== sent.transactionHash)],
     }));
+    // Save immediately after broadcast, before closing the create flow. A failed
+    // save retains the hash locally and the background worker retries only storage.
+    try {
+      const record = await recordBroadcastCompanyPayout(company.id, {
+        transactionHash: sent.transactionHash, to: sent.to, amount: sent.amount,
+        receiverName: payout.receiverName, memo: payout.memo,
+      }, recordingToken);
+      if (session) forgetPendingCompanyPayout(session.user.id, sent.transactionHash);
+      setPaymentRowsByAccount(current => ({ ...current, [accountId]: (current[accountId] ?? []).map(item =>
+        item.transactionHash === sent.transactionHash ? companyPayoutRow(record, true) : item),
+      }));
+    } catch { /* Never turn a storage outage after broadcast into another send. */ }
     return row.id;
   };
 
@@ -4479,6 +4519,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
             }
             const result = await companyWallets!.confirmCompanyPayment(row.walletCompanyId!, {
               transactionHash: row.transactionHash!, to: row.payoutKey, amount: row.senderAmount,
+              receiverName: row.receiver, memo: row.memo,
             });
             if (cancelled || result.status === "Incomplete") return;
             return { accountId, row: { ...row, status: result.status, confirmedAt: result.confirmedAt, confirmedBlock: result.blockNumber } };

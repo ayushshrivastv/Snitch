@@ -306,7 +306,18 @@ export class CompanyStore {
           .run(companyId);
       }
       if (await this.hasTable("invoices")) {
+        if (await this.hasTable("invoice_payment_submissions")) {
+          await this.db.prepare(`DELETE FROM invoice_payment_submissions
+            WHERE invoice_id IN (SELECT id FROM invoices WHERE company_id = ?)`).run(companyId);
+        }
+        if (await this.hasTable("invoice_payment_attempts")) {
+          await this.db.prepare(`DELETE FROM invoice_payment_attempts
+            WHERE invoice_id IN (SELECT id FROM invoices WHERE company_id = ?)`).run(companyId);
+        }
         await this.db.prepare("DELETE FROM invoices WHERE company_id = ?").run(companyId);
+      }
+      if (await this.hasTable("company_payout_submissions")) {
+        await this.db.prepare("DELETE FROM company_payout_submissions WHERE company_id = ? AND owner_user_id = ?").run(companyId, userId);
       }
       if (await this.hasTable("company_payouts")) {
         await this.db.prepare("DELETE FROM company_payouts WHERE company_id = ? AND owner_user_id = ?")

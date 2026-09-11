@@ -2,6 +2,7 @@ import { formatEther } from "ethers";
 import type { UnsignedTransactionRequest, SendTransactionModalUIOptions } from "@privy-io/react-auth";
 
 import type { CompanyAccount } from "@/lib/company-types";
+import type { CompanyPayoutRecord, RecordCompanyPayoutInput } from "@/lib/company-payout-types";
 import { ETHEREUM_CHAIN_ID, isEthereumTransactionHash, normalizeEthereumAddress, parseEthAmount } from "../../../services/ethereum";
 
 export type CompanyPaymentInput = { to: string; amount: string };
@@ -18,6 +19,22 @@ type SendTransaction = (transaction: UnsignedTransactionRequest, options: {
   address: string;
   uiOptions: SendTransactionModalUIOptions;
 }) => Promise<{ hash: string }>;
+
+/** Finish recording an authorized broadcast even if its workspace has unmounted. */
+export async function recordBroadcastCompanyPayout(companyId: string, payment: RecordCompanyPayoutInput, accessToken: string): Promise<CompanyPayoutRecord> {
+  if (!accessToken || !isEthereumTransactionHash(payment.transactionHash)) throw new Error("The payout submission is incomplete.");
+  const response = await fetch(`/api/companies/${encodeURIComponent(companyId)}/payouts`, {
+    method: "POST", keepalive: true, cache: "no-store", signal: AbortSignal.timeout(20_000),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payment),
+  });
+  const result = await response.json() as { payout?: CompanyPayoutRecord; error?: string };
+  if (!response.ok || !result.payout || result.payout.companyId !== companyId ||
+    result.payout.transactionHash.toLowerCase() !== payment.transactionHash.toLowerCase()) {
+    throw new Error(result.error || "The payout was sent but its record could not be saved yet.");
+  }
+  return result.payout;
+}
 
 /** Only the selected company's user-controlled wallet can authorize this request. */
 export async function sendCompanyWalletPayment({ company, userId, input, signal, sendTransaction }: {

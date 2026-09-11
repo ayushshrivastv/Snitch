@@ -1,13 +1,22 @@
-import { companyErrorResponse, companyRequestBody, companyResponse, normalizeCompanyWalletAddress } from "@/lib/company-service";
+import { companyErrorResponse, companyRequestBody, companyResponse } from "@/lib/company-service";
 import { CompanyError, getCompanyForUser } from "@/lib/company-store";
 import { CompanyPaymentVerificationError, verifyCompanyPayment } from "@/lib/company-payment-verification";
 import { requirePrivyUser } from "@/lib/privy-server";
-import { getEthereumExplorerUrl, isEthereumTransactionHash, parseEthAmount } from "../../../../../../../services/ethereum";
+import { parseEthAmount } from "../../../../../../../services/ethereum";
+import { parseCompanyPayoutInput } from "@/lib/company-payout-service";
+import type { CompanyPayoutRecord } from "@/lib/company-payout-types";
 
 import { createCompanyPaymentReader } from "@/lib/company-payment-reader";
 import { getCompanyPayoutStore } from "@/lib/company-payout-store";
 
 export const runtime = "nodejs";
+
+function confirmationResponse(payout: CompanyPayoutRecord) {
+  return companyResponse({ status: payout.status, transactionHash: payout.transactionHash, explorerUrl: payout.explorerUrl,
+    ...(payout.blockNumber === undefined ? {} : { blockNumber: payout.blockNumber }),
+    ...(payout.confirmedAt === undefined ? {} : { confirmedAt: payout.confirmedAt }),
+  });
+}
 
 export async function POST(request: Request, context: { params: Promise<{ companyId: string }> }) {
   const auth = await requirePrivyUser(request);
@@ -17,18 +26,30 @@ export async function POST(request: Request, context: { params: Promise<{ compan
     const company = await getCompanyForUser(auth.userId, companyId);
     if (!company) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
     if (company.wallet.status !== "ready" || !company.wallet.address) throw new CompanyError("Finish setting up your company wallet first.", 409, "COMPANY_WALLET_PENDING");
-    const body = await companyRequestBody(request);
-    if (!isEthereumTransactionHash(body.transactionHash) || typeof body.amount !== "string") throw new CompanyError("Provide a transaction hash, recipient, and ETH amount.", 400, "INVALID_PAYMENT");
-    const to = normalizeCompanyWalletAddress(body.to);
-    try { parseEthAmount(body.amount); } catch { throw new CompanyError("Enter a positive ETH amount with at most 18 decimal places.", 400, "INVALID_PAYMENT_AMOUNT"); }
-    try {
-      const confirmation = await verifyCompanyPayment({ from: company.wallet.address, to, amount: body.amount, transactionHash: body.transactionHash, provider: createCompanyPaymentReader(AbortSignal.timeout(8000)), requireTransaction: true });
-      await getCompanyPayoutStore().saveVerified(auth.userId, companyId, { from: company.wallet.address, to, amount: body.amount, confirmation });
-      return companyResponse(confirmation);
-    } catch (error) {
-      if (error instanceof CompanyPaymentVerificationError && error.status === 409) return companyResponse({ status: "Incomplete", transactionHash: body.transactionHash.toLowerCase(), explorerUrl: getEthereumExplorerUrl(body.transactionHash) });
-      if (error instanceof CompanyPaymentVerificationError) return companyResponse({ error: error.message, code: "PAYMENT_NOT_VERIFIED" }, error.status);
-      return companyResponse({ error: "Confirmation is temporarily unavailable. Check this transaction again; do not send it again.", code: "PAYMENT_CONFIRMATION_UNAVAILABLE" }, 503);
+    const payment = parseCompanyPayoutInput(await companyRequestBody(request));
+    const stored = await getCompanyPayoutStore().findForCompany(auth.userId, companyId, payment.transactionHash);
+    if (stored && (stored.to !== payment.to || parseEthAmount(stored.amount) !== parseEthAmount(payment.amount))) {
+      throw new CompanyError("This transaction is already recorded with different payout details.", 409, "PAYOUT_CONFLICT");
     }
+    if (stored && stored.status !== "Incomplete") return confirmationResponse(stored);
+    const submission = stored ? undefined : await getCompanyPayoutStore().findSubmissionForCompany(auth.userId, companyId, payment.transactionHash);
+    if (submission && (submission.payout.to !== payment.to || parseEthAmount(submission.payout.amount) !== parseEthAmount(payment.amount))) {
+      throw new CompanyError("This transaction is already recorded with different payout details.", 409, "PAYOUT_CONFLICT");
+    }
+    if (submission && submission.nextCheckAt > new Date().toISOString()) return confirmationResponse(submission.payout);
+    let confirmation;
+    try {
+      confirmation = await verifyCompanyPayment({ from: company.wallet.address, ...payment, provider: createCompanyPaymentReader(AbortSignal.timeout(8000)), requireTransaction: true });
+    } catch (error) {
+      if (error instanceof CompanyPaymentVerificationError && error.status < 500 && error.status !== 409) {
+        await getCompanyPayoutStore().discardSubmission(auth.userId, companyId, payment.transactionHash);
+        return companyResponse({ error: error.message, code: "PAYMENT_NOT_VERIFIED" }, error.status);
+      }
+      const payout = await getCompanyPayoutStore().saveSubmission(auth.userId, companyId, { from: company.wallet.address, ...payment });
+      await getCompanyPayoutStore().deferSubmission(auth.userId, companyId, payment.transactionHash);
+      return confirmationResponse(payout);
+    }
+    const payout = await getCompanyPayoutStore().saveVerified(auth.userId, companyId, { from: company.wallet.address, ...payment, confirmation });
+    return confirmationResponse(payout);
   } catch (error) { return companyErrorResponse(error); }
 }

@@ -79,3 +79,20 @@ test("legacy invoices without a company keep their existing storage behavior", a
     assert.deepEqual(await data.invoices.getInvoice(legacy.id), legacy);
   } finally { data.close(); }
 });
+
+test("company deletion removes its pending verification records and rejects later orphan submissions", async () => {
+  const data = await fixture();
+  const hash = `0x${"ab".repeat(32)}`;
+  try {
+    await data.invoices.saveInvoice(data.invoice);
+    await data.invoices.savePaymentSubmission(data.invoice.id, `0x${"cd".repeat(32)}`);
+    await data.invoices.savePaymentAttempt(data.invoice.id, hash);
+    assert.equal((await data.invoices.getPaymentAttempts(data.invoice.id)).length, 1);
+    assert.equal((await data.invoices.getDuePaymentSubmissions(data.invoice.id)).length, 1);
+    await data.companies.deleteForUser(data.ownerId, data.company.id);
+    assert.equal((await data.invoices.getPaymentAttempts(data.invoice.id)).length, 0);
+    assert.equal((await data.invoices.getDuePaymentSubmissions(data.invoice.id)).length, 0);
+    await assert.rejects(data.invoices.savePaymentSubmission(data.invoice.id, hash), /Invoice not found/);
+    await assert.rejects(data.invoices.savePaymentAttempt(data.invoice.id, hash), /Invoice not found/);
+  } finally { data.close(); }
+});

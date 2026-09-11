@@ -3,7 +3,8 @@ import { createServer, type Server } from "node:http";
 import { after, before, test } from "node:test";
 import { fixtureUserId, installPrivyAuthFixture } from "./helpers/privy-auth";
 import { installCompanyFixture } from "./helpers/company-wallet";
-import { closeInvoiceStore, InvoiceStore } from "../src/lib/invoice-store";
+import { closeInvoiceStore, getInvoiceStore, InvoiceStore } from "../src/lib/invoice-store";
+import { AsyncDatabase } from "../src/lib/database";
 import { getCompanyDatabasePath } from "../src/lib/company-store";
 import { PaymentConfirmationConflictError } from "../src/lib/payment-confirmations";
 
@@ -11,6 +12,7 @@ const treasury = "0x1111111111111111111111111111111111111111";
 const payer = "0x2222222222222222222222222222222222222222";
 const otherRecipient = "0x3333333333333333333333333333333333333333";
 const blockHash = `0x${"45".repeat(32)}`;
+const blockTimestamp = 1789140000;
 const amount = "0.001000000000000001";
 const validBody = {
   currency: "ETH",
@@ -26,6 +28,7 @@ type RpcRecord = Record<string, unknown>;
 const transactions = new Map<string, RpcRecord>();
 const receipts = new Map<string, RpcRecord | null>();
 const rpcMethods: string[] = [];
+let rpcUnavailable = false;
 let nextHash = 1;
 let server: Server;
 let invoiceRoute: typeof import("../src/app/api/invoices/route");
@@ -52,11 +55,13 @@ before(async () => {
     const requests = JSON.parse(body) as RpcRequest | RpcRequest[];
     const respond = ({ id, method, params }: RpcRequest) => {
       rpcMethods.push(method);
+      if (rpcUnavailable) return { jsonrpc: "2.0", id, error: { code: -32000, message: "RPC offline" } };
       let result: unknown;
       switch (method) {
         case "eth_chainId": result = "0xaa36a7"; break;
         case "eth_getTransactionByHash": result = transactions.get(params![0].toLowerCase()) ?? null; break;
         case "eth_getTransactionReceipt": result = receipts.get(params![0].toLowerCase()) ?? null; break;
+        case "eth_getBlockByNumber": result = { hash: blockHash, timestamp: `0x${blockTimestamp.toString(16)}` }; break;
         default: return { jsonrpc: "2.0", id, error: { code: -32601, message: `Unexpected RPC method: ${method}` } };
       }
       return { jsonrpc: "2.0", id, result };
@@ -139,8 +144,8 @@ function registerTransaction(invoiceId: string, changes: RpcRecord = {}, receipt
     transactionIndex: "0x0",
     blockHash,
     blockNumber: "0x7b",
-    from: payer,
-    to: treasury,
+    from: transactions.get(hash)!.from,
+    to: transactions.get(hash)!.to,
     contractAddress: null,
     cumulativeGasUsed: "0x7530",
     gasUsed: "0x7530",
@@ -168,7 +173,7 @@ test("invoice creation fixes the recipient from the verified company's wallet an
   assert.equal(invoice.amount, amount);
   assert.equal(invoice.companyId, companyId);
   assert.equal(invoice.treasuryAccount, "Verified company");
-  assert.deepEqual(await status(invoice.id), { ok: true, payment: null, status: "Incomplete" });
+  assert.deepEqual(await status(invoice.id), { ok: true, payment: null, status: "Incomplete", pendingPayment: null, failedPayment: null });
 });
 
 test("invoice creation requires a company and never falls back to the global treasury", async () => {
@@ -273,6 +278,7 @@ test("successful confirmation uses the stored invoice, updates status, and preve
   assert.equal(result.payment.payer, payer);
   assert.equal(result.payment.chainId, 11155111);
   assert.equal(result.payment.blockNumber, 123);
+  assert.equal(result.payment.confirmedAt, new Date(blockTimestamp * 1000).toISOString());
   assert.equal(result.payment.transactionHash, transactionHash);
   assert.equal(result.payment.explorerUrl, `https://sepolia.etherscan.io/tx/${transactionHash}`);
   assert.equal((await status(invoice.id)).payment.status, "Succeeded");
@@ -304,7 +310,7 @@ test("client-supplied fields cannot make a mismatched transaction satisfy a stor
     }));
     const result = await response.json();
     assert.equal(response.status, 422, JSON.stringify({ changes, result }));
-    assert.deepEqual(await status(invoice.id), { ok: true, payment: null, status: "Incomplete" });
+    assert.deepEqual(await status(invoice.id), { ok: true, payment: null, status: "Incomplete", pendingPayment: null, failedPayment: null });
   }
 });
 
@@ -379,4 +385,132 @@ test("company invoice hydration requires the verified owner and restores exact r
   const unrelated = (await companies.create(owner, "Other company", otherRecipient));
   const empty = await listRoute.GET(listRequest(owner), { params: Promise.resolve({ companyId: unrelated.id }) });
   assert.deepEqual(await empty.json(), { invoices: [] });
+});
+
+test("a pending broadcast survives browser logout and store restart, then public status persists its mined receipt", async () => {
+  const invoice = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id);
+  const minedReceipt = receipts.get(transactionHash)!;
+  receipts.set(transactionHash, null);
+  const submitted = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));
+  assert.equal(submitted.status, 202);
+  assert.equal((await submitted.json()).code, "transaction_pending");
+  closeInvoiceStore();
+  const pending = await status(invoice.id);
+  assert.equal(pending.payment, null);
+  assert.equal(pending.pendingPayment.transactionHash, transactionHash);
+  receipts.set(transactionHash, minedReceipt);
+  const confirmed = await status(invoice.id);
+  assert.equal(confirmed.payment.transactionHash, transactionHash);
+  assert.equal(confirmed.pendingPayment, null);
+  closeInvoiceStore();
+  assert.deepEqual((await status(invoice.id)).payment, confirmed.payment);
+});
+
+test("transaction-page batch status and authenticated history finish pending payments without the payer returning", async () => {
+  for (const via of ["batch", "history"]) {
+    const invoice = await createInvoice();
+    const transactionHash = registerTransaction(invoice.id);
+    const minedReceipt = receipts.get(transactionHash)!;
+    receipts.set(transactionHash, null);
+    assert.equal((await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }))).status, 202);
+    receipts.set(transactionHash, minedReceipt);
+    closeInvoiceStore();
+    if (via === "batch") {
+      const response = await statusRoute.GET(new Request(`http://localhost/api/payments/status?invoiceIds=${invoice.id}`));
+      assert.equal(response.status, 200);
+      const result = await response.json();
+      assert.equal(result.statuses[invoice.id].status, "Succeeded");
+      assert.equal(result.statuses[invoice.id].transactionHash, transactionHash);
+    } else {
+      const response = await listRoute.GET(new Request(`http://localhost/api/companies/${companyId}/invoices`, {
+        headers: { Authorization: `Bearer ${auth.token()}` },
+      }), { params: Promise.resolve({ companyId }) });
+      const result = await response.json();
+      const record = result.invoices.find((entry: { id: string }) => entry.id === invoice.id);
+      assert.equal(record.status, "Succeeded");
+      assert.equal(record.payment.transactionHash, transactionHash);
+    }
+  }
+});
+
+test("RPC outages preserve submitted payment progress without reporting success", async () => {
+  const invoice = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id, {}, null);
+  assert.equal((await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }))).status, 202);
+  rpcUnavailable = true;
+  try {
+    const pending = await status(invoice.id);
+    assert.equal(pending.payment, null);
+    assert.equal(pending.pendingPayment.transactionHash, transactionHash);
+  } finally { rpcUnavailable = false; }
+});
+
+test("success is withheld until storage commits and the saved broadcast recovers after a failed write", async () => {
+  const invoice = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id);
+  const store = getInvoiceStore();
+  const originalSave = store.savePayment;
+  store.savePayment = async () => { throw new Error("Unavailable storage"); };
+  try {
+    const response = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));
+    assert.equal(response.status, 503);
+    assert.match((await response.json()).error, /do not send another payment/);
+    assert.equal(await store.getPayment(invoice.id), undefined);
+    assert.equal((await store.getPaymentAttempts(invoice.id))[0].transactionHash, transactionHash);
+  } finally { store.savePayment = originalSave; }
+  closeInvoiceStore();
+  assert.equal((await status(invoice.id)).payment.transactionHash, transactionHash);
+});
+
+test("concurrent confirmation retries store one receipt and remain idempotent", async () => {
+  const invoice = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id);
+  const responses = await Promise.all(Array.from({ length: 4 }, () => confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }))));
+  const records = await Promise.all(responses.map(async response => { assert.equal(response.status, 200); return (await response.json()).payment; }));
+  assert.ok(records.every(record => JSON.stringify(record) === JSON.stringify(records[0])));
+  assert.equal((await getInvoiceStore().getPaymentAttempts(invoice.id)).length, 1);
+});
+
+test("unindexed hashes survive a store restart as bounded hints without locking checkout", async () => {
+  const invoice = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id);
+  const transaction = transactions.get(transactionHash)!;
+  transactions.delete(transactionHash);
+  const response = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));
+  assert.equal(response.status, 202);
+  assert.equal((await response.json()).code, "transaction_not_indexed");
+  closeInvoiceStore();
+  const unknown = await status(invoice.id);
+  assert.equal(unknown.pendingPayment, null);
+  assert.equal(unknown.payment, null);
+  transactions.set(transactionHash, transaction);
+  const database = new AsyncDatabase(getCompanyDatabasePath());
+  try {
+    // Advance the stored retry schedule instead of waiting on wall-clock time.
+    await database.prepare("UPDATE invoice_payment_submissions SET next_check_at = ? WHERE invoice_id = ?").run("2000-01-01T00:00:00.000Z", invoice.id);
+  } finally { database.close(); }
+  const confirmed = await status(invoice.id);
+  assert.equal(confirmed.payment.transactionHash, transactionHash);
+  assert.equal(confirmed.pendingPayment, null);
+});
+
+test("anonymous submission hints cannot reserve a hash against its real invoice or prevent valid confirmation", async () => {
+  const invoice = await createInvoice();
+  const unrelated = await createInvoice();
+  const transactionHash = registerTransaction(invoice.id);
+  const store = getInvoiceStore();
+  await store.savePaymentSubmission(unrelated.id, transactionHash);
+  for (let index = 0; index < 40; index++) await store.savePaymentSubmission(invoice.id, `0x${(1000 + index).toString(16).padStart(64, "0")}`);
+  const database = new AsyncDatabase(getCompanyDatabasePath());
+  try {
+    const row = await database.prepare("SELECT COUNT(*) AS total FROM invoice_payment_submissions WHERE invoice_id = ?").get(invoice.id);
+    assert.equal(row?.total, 32);
+    assert.equal((await store.getDuePaymentSubmissions(invoice.id)).length, 4);
+  } finally { database.close(); }
+  const response = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).payment.transactionHash, transactionHash);
+  assert.equal((await status(unrelated.id)).payment, null);
+  assert.equal((await store.getDuePaymentSubmissions(unrelated.id)).length, 0);
 });

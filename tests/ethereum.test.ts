@@ -20,6 +20,8 @@ import { InvoiceStore } from "../src/lib/invoice-store";
 const treasury = "0x1111111111111111111111111111111111111111";
 const payer = "0x2222222222222222222222222222222222222222";
 const transactionHash = `0x${"ab".repeat(32)}`;
+const blockHash = `0x${"45".repeat(32)}`;
+const blockTimestamp = 1789140000;
 const invoice = { id: "INV-TEST", amount: "0.001", treasury, chainId: ETHEREUM_CHAIN_ID } as const;
 const transaction = {
   hash: transactionHash,
@@ -29,11 +31,12 @@ const transaction = {
   value: BigInt("1000000000000000"),
   data: getInvoicePaymentData(invoice.id),
 };
-const receipt = { hash: transactionHash, status: 1, blockNumber: 123 };
+const receipt = { hash: transactionHash, from: payer, to: treasury, status: 1, blockNumber: 123, blockHash };
 const reader: EthereumPaymentReader = {
   getNetwork: async () => ({ chainId: BigInt(ETHEREUM_CHAIN_ID) }),
   getTransaction: async () => transaction,
   getTransactionReceipt: async () => receipt,
+  getBlock: async () => ({ hash: blockHash, timestamp: blockTimestamp }),
 };
 
 test("ETH amounts preserve wei precision and reject rounding, zero, and malformed inputs", () => {
@@ -94,7 +97,37 @@ test("wallet rejection does not submit a transaction", async () => {
 });
 
 test("successful verification requires a mined Sepolia payment matching the stored invoice", async () => {
-  assert.deepEqual(await verifyEthPayment({ invoice, transactionHash, provider: reader }), { payer, treasury, blockNumber: 123 });
+  assert.deepEqual(await verifyEthPayment({ invoice, transactionHash, provider: reader }), { payer, treasury, blockNumber: 123, confirmedAt: new Date(blockTimestamp * 1000).toISOString() });
+});
+
+test("invoice verification requires a matching receipt in the canonical mined block", async () => {
+  for (const change of [{ hash: blockHash }, { from: treasury }, { to: payer }, { to: null }, { blockNumber: 0 }, { status: 2 }]) {
+    await assert.rejects(verifyEthPayment({ invoice, transactionHash,
+      provider: { ...reader, getTransactionReceipt: async () => ({ ...receipt, ...change }) },
+    }), PaymentVerificationError);
+  }
+  for (const block of [null, { hash: transactionHash, timestamp: blockTimestamp }]) {
+    await assert.rejects(verifyEthPayment({ invoice, transactionHash, provider: { ...reader, getBlock: async () => block } }),
+      (error: unknown) => error instanceof PaymentVerificationError && error.status === 202);
+  }
+  await assert.rejects(verifyEthPayment({ invoice, transactionHash, provider: { ...reader, getBlock: async () => ({ hash: blockHash, timestamp: NaN }) } }), PaymentVerificationError);
+});
+
+test("verified broadcasts are saved before receipt lookup, and invalid candidates are never saved", async () => {
+  let persisted = false;
+  await assert.rejects(verifyEthPayment({ invoice, transactionHash,
+    onTransactionVerified: async () => { persisted = true; },
+    provider: { ...reader, getTransactionReceipt: async () => { assert.equal(persisted, true); return null; } },
+  }), (error: unknown) => error instanceof PaymentVerificationError && error.code === "transaction_pending");
+  persisted = false;
+  await assert.rejects(verifyEthPayment({ invoice, transactionHash,
+    onTransactionVerified: async () => { persisted = true; },
+    provider: { ...reader, getTransaction: async () => ({ ...transaction, value: BigInt(1) }) },
+  }), PaymentVerificationError);
+  assert.equal(persisted, false);
+  await assert.rejects(verifyEthPayment({ invoice, transactionHash,
+    onTransactionVerified: async () => { throw new Error("Storage unavailable"); }, provider: reader,
+  }), /Storage unavailable/);
 });
 
 test("pending and failed transactions are never accepted", async () => {

@@ -22,7 +22,7 @@ Run with Node.js 22.14 or newer (`node:sqlite` is required). Development uses `.
 
 On first use after this update, the store adds the `purpose` column inside a serialized SQLite migration. Existing rows default to `company`, even if their name is Snitchpay.co; existing ownership and wallet bindings are preserved. The existing partial unique index preserves one `playground` record per owner for legacy data. New shared treasury recovery accepts only the canonical company and CFO; legacy private Playground records are never selected by the shared display alias or silently replaced.
 
-Production must set `SNITCH_DATA_DIR` to an absolute path on a persistent volume and run a single service instance sharing that database. Back up the database and its WAL correctly using SQLite's backup tooling. The service fails closed when the directory is not configured in production or when a known ephemeral serverless environment is detected. A serverless or multi-region deployment requires a managed durable database implementation before use; do not point this setting at temporary storage.
+Vercel production uses remote libSQL/Turso storage configured by `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`; see [Vercel database setup](vercel-database.md). A standalone Node service may instead set `SNITCH_DATA_DIR` to an absolute persistent directory. Ephemeral serverless files and temporary storage are rejected. The database includes submitted hashes and confirmed invoice/payout records, so signing out does not clear payment history.
 
 ## Interrupted setup
 
@@ -87,3 +87,5 @@ Company endpoints require a Privy access token in `Authorization: Bearer …` an
 `CompanyAccount` exposes public account metadata including `purpose: "company" | "playground"`, `cfoUserId`, and, for a pending record, its wallet baseline and any single recoverable candidate. A ready record includes `wallet.address` and its optional `wallet.privyWalletId`. Errors contain a human-readable `error` and a stable `code`; `COMPANY_SETUP_PENDING` also includes the existing pending company so setup can be resumed. `PLAYGROUND_NAME_FIXED` rejects changes to the Playground name.
 
 Implementation: `src/lib/company-store.ts`, `src/lib/company-service.ts`, `src/app/api/companies/`, `src/components/auth/company-wallet-provider.tsx`, and `src/components/auth/company-treasury-panel.tsx`. Profile setup is documented in [Privy authentication](privy-auth.md).
+
+For current broadcast recovery, automatic reconciliation, checkout success UI, and cross-session behavior, see [Payment settlement](payment-settlement.md).
