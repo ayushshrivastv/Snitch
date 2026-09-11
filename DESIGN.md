@@ -105,6 +105,8 @@ Primary buttons are near-black, at least 40px tall, and use a visible focus ring
 
 Keep company wallet identity in Overview. Wallet settings contains the full-width Privy export card, Company account and Team access links, and the wallet-access footer. The wallet workspace has one viewport-bounded scroll area with no scroll chaining; positioned accessibility status elements stay contained within the wallet page.
 
+The Snitchpay.co USD overview uses two equal cards with 16px spacing: purple bars with rounded pale caps for balance history, and a pink/coral gradient area for payment volume. Keep the surrounding surfaces neutral. Charts scale from supplied observations, include accessible descriptions, and stack below the medium breakpoint. Show fixed-period labels for showcase data; keep live onchain funds in the wallet identity card.
+
 ## Do's and Don'ts
 
 Do explain what a signature authorizes before requesting it. Do show loading, rejection, and unavailable states beside the initiating control. Do keep key export inside Privy’s protected interface. Don’t imply that Snitch can see, recover, or store an exported private key. Don’t use approximate symbols for blockchain balances. Don’t hide irreversible actions behind unlabeled icons.

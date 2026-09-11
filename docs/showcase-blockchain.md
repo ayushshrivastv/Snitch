@@ -8,6 +8,12 @@ Snapshots live in `src/data/showcase-ethereum.json` and `src/data/showcase-base.
 
 Pending and failed Playground payouts use checksummed address-format fixtures from `src/lib/showcase-payout-wallets.ts`. These are presentation data, not verified or company-owned wallets; no keys are generated. Successful payout details always take sender and recipient directly from the verified transfer. Both addresses display in full with checksum casing and copy controls. A real company without a treasury address never falls back to a Playground address.
 
+## USD treasury presentation
+
+The Snitchpay.co wallet overview uses explicitly selected showcase USD figures from `src/data/showcase-treasury.ts`: a $51,968.68 balance and $221,663.25 in payment volume across August 13–September 11, 2026. Values use integer cents; the balance chart ends at the displayed balance and the volume total sums the daily observations. These fixtures are independent of the historical ETH transfer rows and do not price Sepolia ETH in USD.
+
+Only `ShowcaseTreasuryPanel` supplies these figures. Real company wallets retain their onchain balances. The Snitchpay.co identity card also keeps its live ETH balance, refresh control, network, and address. USD presentation values never enter invoices, payout validation, signing, or export authority.
+
 ## Collect and verify
 
 Run from the project root:

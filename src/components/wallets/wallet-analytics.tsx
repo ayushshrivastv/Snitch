@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const colors = ["#8972e8", "#f5a5c5"];
 const dateLabel = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export function WalletAnalytics({ activity }: { activity: WalletActivity[] }) {
+export function WalletAnalytics({ activity, networkOnly = false }: { activity: WalletActivity[]; networkOnly?: boolean }) {
   const [range, setRange] = useState<"7d" | "30d" | "all">("all");
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chart = useMemo(() => buildWalletActivityChart(activity, { range }), [activity, range]);
@@ -19,8 +19,8 @@ export function WalletAnalytics({ activity }: { activity: WalletActivity[] }) {
   const active = chart.daily.find(day => day.date === activeDate);
   const totalVolume = Number(chart.totals.totalVolume);
 
-  return <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-    <section className="flex min-w-0 flex-col rounded-md border border-border bg-card" aria-label="Payment volume chart">
+  return <div className={cn("grid gap-4", !networkOnly && "xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]")}>
+    {!networkOnly ? <section className="flex min-w-0 flex-col rounded-md border border-border bg-card" aria-label="Payment volume chart">
       <header className="flex min-h-20 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
         <div><h2 className="text-sm font-semibold tracking-tight">Payment volume</h2><p className="mt-1 text-xs text-muted-foreground">Incoming payments and outgoing payouts</p></div>
         <div className="flex items-center gap-1 rounded-md border border-border p-0.5" role="group" aria-label="Chart date range">{([['7d', '7D'], ['30d', '30D'], ['all', 'All']] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={range === value} onClick={() => { setRange(value); setActiveDate(null); }} className={cn("min-h-10 min-w-10 rounded-sm px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none", range === value ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>{label}</button>)}</div>
@@ -61,7 +61,7 @@ export function WalletAnalytics({ activity }: { activity: WalletActivity[] }) {
       </div>
       </div>
       <div className="mt-auto flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:px-5" aria-live="polite">{active ? <><span className="font-medium text-foreground">{dateLabel(active.date)}</span><span className="break-all">Received {formatExactEthAmount(active.received)} ETH</span><span className="break-all">Sent {formatExactEthAmount(active.paidOut)} ETH</span></> : <><span className="flex items-center gap-2"><span className="size-2 rounded-sm bg-[#8972e8]" />Received</span><span className="flex items-center gap-2"><span className="size-2 rounded-sm bg-[#ec93b7]" />Sent</span><span className="ml-auto tabular-nums">{chart.totals.count} completed transfers</span></>}</div>
-    </section>
+    </section> : null}
 
     <section className="flex min-w-0 flex-col rounded-md border border-border bg-card" aria-label="Activity by network">
       <header className="flex min-h-20 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5"><div><h2 className="text-sm font-semibold tracking-tight">Activity by network</h2><p className="mt-1 text-xs text-muted-foreground">Share of completed payment volume</p></div><span className="shrink-0 rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">ETH</span></header>

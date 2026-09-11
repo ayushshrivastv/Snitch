@@ -7,6 +7,7 @@ import { summarizeWalletActivity, type WalletActivity } from "@/lib/wallet-activ
 import { cn } from "@/lib/utils";
 import { formatExactEthAmount } from "@/lib/wallet-chart-data";
 import { WalletAnalytics } from "./wallet-analytics";
+import { TreasuryOverview, type UsdTreasurySnapshot } from "./treasury-overview";
 import { PrivyBrand } from "./privy-brand";
 import { WalletExportDialog } from "./wallet-export-dialog";
 import type { WalletExportStage } from "@/components/auth/company-wallet-export-request";
@@ -15,6 +16,7 @@ export type WalletPageProps = {
   companyName: string;
   environment: "Playground" | "Testnet";
   wallet?: { address: string; cfoName?: string; createdAt?: string };
+  usdOverview?: UsdTreasurySnapshot;
   balance: string | null;
   balanceState: "loading" | "ready" | "error" | "unavailable";
   balanceError?: string;
@@ -45,7 +47,7 @@ function ActivityStatus({ status }: { status: WalletActivity["status"] }) {
   return <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium", status === "Succeeded" ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : status === "Failed" ? "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300" : "bg-muted text-muted-foreground")}><span className="size-1.5 rounded-full bg-current" />{status}</span>;
 }
 
-export function WalletPage({ companyName, wallet, balance, balanceState, balanceError, updatedAt, activity, onRefresh, onExportWallet, onSetupWallet, onViewPayments, onViewPayouts, onManageCompanies, onManageAccess, setupLabel, signInToConnect }: WalletPageProps) {
+export function WalletPage({ companyName, wallet, usdOverview, balance, balanceState, balanceError, updatedAt, activity, onRefresh, onExportWallet, onSetupWallet, onViewPayments, onViewPayouts, onManageCompanies, onManageAccess, setupLabel, signInToConnect }: WalletPageProps) {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
   const [filter, setFilter] = useState<"all" | "payment" | "payout">("all");
   const [search, setSearch] = useState("");
@@ -100,6 +102,10 @@ export function WalletPage({ companyName, wallet, balance, balanceState, balance
     {wallet ? <>
       {addressControl}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground"><NetworkMark network="Ethereum Sepolia" /><a className={cn(linkClass, "text-xs")} href={"https://sepolia.etherscan.io/address/" + wallet.address} target="_blank" rel="noreferrer">Explorer <ArrowUpRight className="size-3.5" aria-hidden="true" /></a></div>
+      {usdOverview ? <div className="mb-3 flex items-center justify-between gap-3 border-t border-border pt-3 text-xs">
+        <div><p className="text-muted-foreground">Onchain balance</p><p className="mt-1 font-medium tabular-nums">{balanceState === "loading" ? "Loading…" : balanceState === "ready" && balance !== null ? `${formatExactEthAmount(balance)} ETH` : "Unavailable"}</p></div>
+        {onRefresh ? <button type="button" aria-label="Refresh onchain balance" onClick={onRefresh} disabled={balanceState === "loading"} className="flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"><RefreshCw className={cn("size-4", balanceState === "loading" && "motion-safe:animate-spin")} aria-hidden="true" /></button> : null}
+      </div> : null}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs"><span className="text-muted-foreground">Chief Financial Officer</span><span className="font-medium">{wallet.cfoName || "Assigned CFO"}</span></div>
     </> : <>
       <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted-foreground">A dedicated wallet for your company’s funds, secured by Privy.</p>
@@ -139,7 +145,16 @@ export function WalletPage({ companyName, wallet, balance, balanceState, balance
 
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${tabs.indexOf(tab)}`} className="pt-6">
       {tab === "Overview" ? <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className={labelClass}>Treasury at a glance</h2><span className="text-xs text-muted-foreground">ETH · Ethereum Sepolia</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className={labelClass}>Treasury at a glance</h2><span className="text-xs text-muted-foreground">{usdOverview ? "USD" : "ETH · Ethereum Sepolia"}</span></div>
+        {usdOverview ? <>
+          <TreasuryOverview data={usdOverview} onWalletDetails={showWalletDetails} onViewPayments={onViewPayments} onViewPayouts={onViewPayouts} />
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-2 px-1 text-xs text-muted-foreground">
+            <span><strong className="mr-1.5 font-semibold text-foreground tabular-nums">{totals.receivedCount}</strong>payments received</span>
+            <span><strong className="mr-1.5 font-semibold text-foreground tabular-nums">{totals.paidOutCount}</strong>payouts completed</span>
+            <span><strong className="mr-1.5 font-semibold text-foreground tabular-nums">{totals.pendingCount}</strong>pending requests</span>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">{walletDetails}<WalletAnalytics activity={activity} networkOnly /></div>
+        </> : <>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <section aria-label="Treasury balance" className="relative flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-background">
             <div className="relative flex-1 p-5 sm:p-6">
@@ -157,6 +172,8 @@ export function WalletPage({ companyName, wallet, balance, balanceState, balance
           {walletDetails}
         </div>
         <WalletAnalytics activity={activity} />
+        </>}
+
       </div> : null}
 
       {tab === "Wallet settings" ? walletSettings : null}

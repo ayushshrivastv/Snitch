@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useCompanyWallets } from "@/components/auth/company-wallet-provider";
 import { useWorkspaceSession } from "@/components/auth/workspace-session";
 import { SHOWCASE_COMPANY } from "@/lib/showcase-company";
+import { showcaseUsdTreasury } from "@/data/showcase-treasury";
 import type { WalletActivity } from "@/lib/wallet-activity";
 import { ETHEREUM_CHAIN_ID, ETHEREUM_CURRENCY } from "../../../services/ethereum";
 import { WalletPage } from "./wallet-page";
@@ -79,6 +80,7 @@ export function ShowcaseTreasuryPanel({
   return <WalletPage
     companyName={SHOWCASE_COMPANY.name}
     environment="Playground"
+    usdOverview={showcaseUsdTreasury}
     wallet={{ address: SHOWCASE_COMPANY.walletAddress, cfoName: SHOWCASE_COMPANY.cfoName, createdAt: SHOWCASE_COMPANY.createdAt }}
     balance={currentSnapshot?.balance ?? null}
     balanceState={currentSnapshot?.state ?? "loading"}
