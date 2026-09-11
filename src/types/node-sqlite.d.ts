@@ -1,12 +1,14 @@
 // Node 22 provides node:sqlite. The project still uses Node 20's ambient types.
 declare module "node:sqlite" {
+  type SqlValue = string | number | bigint | Uint8Array | null;
   export class DatabaseSync {
-    constructor(path: string);
+    constructor(path: string, options?: { readOnly?: boolean });
     exec(sql: string): void;
     prepare(sql: string): {
-      get(...params: (string | number | null)[]): Record<string, unknown> | undefined;
-      all(...params: (string | number | null)[]): Record<string, unknown>[];
-      run(...params: (string | number | null)[]): { changes: number | bigint };
+      get(...params: SqlValue[]): Record<string, SqlValue> | undefined;
+      all(...params: SqlValue[]): Record<string, SqlValue>[];
+      run(...params: SqlValue[]): { changes: number | bigint };
+      setReadBigInts(enabled: boolean): void;
     };
     close(): void;
   }

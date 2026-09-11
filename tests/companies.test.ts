@@ -8,7 +8,9 @@ import { after, before, mock, test } from "node:test";
 import { PrivyClient } from "@privy-io/node";
 
 import { CompanyError, CompanyStore, getCompanyStore } from "../src/lib/company-store";
+import { AsyncDatabase, DatabaseConfigurationError } from "../src/lib/database";
 import { closeInvoiceStore } from "../src/lib/invoice-store";
+import { SHOWCASE_COMPANY } from "../src/lib/showcase-company";
 import { installPrivyAuthFixture } from "./helpers/privy-auth";
 
 const directory = mkdtempSync(join(tmpdir(), "snitch-company-tests-"));
@@ -99,7 +101,7 @@ test("reservation is durable and idempotent, scoped by owner, and allows one pen
   assert.equal(other.status, 201);
   assert.notEqual((await other.json()).company.id, firstCompany.id);
   const reopened = new CompanyStore(join(directory, "snitch.sqlite"));
-  try { assert.deepEqual(reopened.getForUser(owner, firstCompany.id), firstCompany); }
+  try { assert.deepEqual((await reopened.getForUser(owner, firstCompany.id)), firstCompany); }
   finally { reopened.close(); }
 });
 
@@ -110,7 +112,7 @@ test("concurrent reservations cannot create two pending companies for the same o
     listRoute.POST(request(owner, { name: "Second browser", requestId: randomUUID() })),
   ]);
   assert.deepEqual(responses.map((response) => response.status).sort(), [201, 409]);
-  assert.equal(getCompanyStore().listForUser(owner).length, 1);
+  assert.equal((await getCompanyStore().listForUser(owner)).length, 1);
 });
 
 test("only a new embedded wallet verified against Privy can be bound; repeat binding is safe", async () => {
@@ -131,7 +133,7 @@ test("only a new embedded wallet verified against Privy can be bound; repeat bin
   linkedWallets.set(owner, [wallet(10), wallet(11), wallet(12)]);
   assert.equal((await walletRoute.POST(request(owner, { address: address(12) }), context(company.id))).status, 409);
   assert.equal((await renameRoute.PATCH(request(owner, { name: "Renamed company", address: address(12) }, "PATCH"), context(company.id))).status, 200);
-  assert.equal(getCompanyStore().getForUser(owner, company.id)?.wallet.address?.toLowerCase(), address(11));
+  assert.equal((await getCompanyStore().getForUser(owner, company.id))?.wallet.address?.toLowerCase(), address(11));
 });
 
 test("external, imported, delegated, foreign and non-user-signable wallets are not candidates", async () => {
@@ -161,56 +163,56 @@ test("multiple newly created wallets stop recovery and binding rather than guess
   assert.equal((await response.json()).code, "WALLET_AMBIGUOUS");
 });
 
-test("database prevents reuse across companies and survives a complete connection restart", () => {
+test("database prevents reuse across companies and survives a complete connection restart", async () => {
   const path = join(directory, "restart.sqlite");
   let store = new CompanyStore(path);
-  const first = store.reserve("did:privy:restart", "First", randomUUID(), []).company;
-  store.bindVerifiedWallet("did:privy:restart", first.id, { address: address(40), id: "wallet-40" });
+  const first = (await store.reserve("did:privy:restart", "First", randomUUID(), [])).company;
+  (await store.bindVerifiedWallet("did:privy:restart", first.id, { address: address(40), id: "wallet-40" }));
   store.close();
   store = new CompanyStore(path);
   try {
-    assert.equal(store.getForUser("did:privy:restart", first.id)?.wallet.address, address(40));
-    const second = store.reserve("did:privy:restart", "Second", randomUUID(), []).company;
-    assert.throws(() => store.bindVerifiedWallet("did:privy:restart", second.id, { address: address(40) }), (error) => error instanceof CompanyError && error.code === "WALLET_ALREADY_LINKED");
-    assert.throws(() => store.bindVerifiedWallet("did:privy:wrong-owner", second.id, { address: address(41) }), (error) => error instanceof CompanyError && error.status === 404);
-    assert.equal(store.getForUser("did:privy:restart", second.id)?.wallet.status, "pending");
+    assert.equal((await store.getForUser("did:privy:restart", first.id))?.wallet.address, address(40));
+    const second = (await store.reserve("did:privy:restart", "Second", randomUUID(), [])).company;
+    (await assert.rejects(async () => (await store.bindVerifiedWallet("did:privy:restart", second.id, { address: address(40) })), (error) => error instanceof CompanyError && error.code === "WALLET_ALREADY_LINKED"));
+    (await assert.rejects(async () => (await store.bindVerifiedWallet("did:privy:wrong-owner", second.id, { address: address(41) })), (error) => error instanceof CompanyError && error.status === 404));
+    assert.equal((await store.getForUser("did:privy:restart", second.id))?.wallet.status, "pending");
   } finally { store.close(); }
 });
 
-test("deleting a company removes its stored records while preserving Playground accounts", () => {
+test("deleting a company removes its stored records while preserving Playground accounts", async () => {
   const path = join(directory, "deletion.sqlite");
   const store = new CompanyStore(path);
   try {
     const owner = "did:privy:delete-store";
-    const company = store.reserve(owner, "Delete me", randomUUID(), []).company;
-    const database = new DatabaseSync(path);
-    database.exec(`
-      CREATE TABLE invoices (id TEXT PRIMARY KEY, company_id TEXT NOT NULL);
-      CREATE TABLE invoice_payments (invoice_id TEXT NOT NULL, transaction_hash TEXT PRIMARY KEY);
-      CREATE TABLE company_payouts (company_id TEXT NOT NULL, owner_user_id TEXT NOT NULL);
-    `);
-    database.prepare("INSERT INTO invoices (id, company_id) VALUES (?, ?)").run("INV-DELETE", company.id);
-    database.prepare("INSERT INTO invoice_payments (invoice_id, transaction_hash) VALUES (?, ?)").run("INV-DELETE", "0xdelete");
-    database.prepare("INSERT INTO company_payouts (company_id, owner_user_id) VALUES (?, ?)").run(company.id, owner);
+    const company = (await store.reserve(owner, "Delete me", randomUUID(), [])).company;
+    const database = new AsyncDatabase(path);
+    await database.prepare("INSERT INTO invoices (id, company_id, owner_id, created_at, payload) VALUES (?, ?, ?, ?, ?)")
+      .run("INV-DELETE", company.id, owner, "2026-09-11", "{}");
+    await database.prepare("INSERT INTO invoice_payments (invoice_id, transaction_hash, payload) VALUES (?, ?, ?)")
+      .run("INV-DELETE", "0xdelete", "{}");
+    await database.prepare(`INSERT INTO company_payouts
+      (id, company_id, owner_user_id, transaction_hash, sender, recipient, amount, receiver_name, memo, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run("payout-delete", company.id, owner, "0xpayout", address(80), address(81), "0.1", "Receiver", "", "Incomplete", "2026-09-11", "2026-09-11");
     database.close();
 
-    assert.throws(() => store.deleteForUser("did:privy:someone-else", company.id), (error) =>
-      error instanceof CompanyError && error.status === 404);
-    assert.equal(store.deleteForUser(owner, company.id).id, company.id);
-    assert.equal(store.getForUser(owner, company.id), undefined);
+    (await assert.rejects(async () => (await store.deleteForUser("did:privy:someone-else", company.id)), (error) =>
+      error instanceof CompanyError && error.status === 404));
+    assert.equal((await store.deleteForUser(owner, company.id)).id, company.id);
+    assert.equal((await store.getForUser(owner, company.id)), undefined);
 
-    const verification = new DatabaseSync(path);
+    const verification = new AsyncDatabase(path);
     try {
       for (const table of ["invoices", "invoice_payments", "company_payouts"] as const) {
-        assert.equal((verification.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count, 0);
+        assert.equal((await verification.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count, 0);
       }
     } finally { verification.close(); }
 
-    const playgroundOwner = "did:privy:delete-playground";
-    const playground = store.reservePlayground(playgroundOwner, []).company;
-    assert.throws(() => store.deleteForUser(playgroundOwner, playground.id), (error) =>
-      error instanceof CompanyError && error.code === "PLAYGROUND_DELETE_FORBIDDEN");
-    assert.equal(store.getForUser(playgroundOwner, playground.id)?.name, "Snitchpay.co");
+    const playgroundOwner = SHOWCASE_COMPANY.cfoUserId;
+    const playground = (await store.restoreVerifiedShowcase(playgroundOwner, { address: SHOWCASE_COMPANY.walletAddress, id: SHOWCASE_COMPANY.privyWalletId })).company;
+    (await assert.rejects(async () => (await store.deleteForUser(playgroundOwner, playground.id)), (error) =>
+      error instanceof CompanyError && error.code === "PLAYGROUND_DELETE_FORBIDDEN"));
+    assert.equal((await store.getForUser(playgroundOwner, playground.id))?.name, "Snitchpay.co");
   } finally { store.close(); }
 });
 
@@ -222,7 +224,7 @@ test("company delete route requires the account owner", async () => {
   const response = await renameRoute.DELETE(request(owner, undefined, "DELETE"), context(company.id));
   assert.equal(response.status, 200);
   assert.equal((await response.json()).deletedCompanyId, company.id);
-  assert.equal(getCompanyStore().getForUser(owner, company.id), undefined);
+  assert.equal((await getCompanyStore().getForUser(owner, company.id)), undefined);
 });
 
 test("balance reads the bound company address on Sepolia and reports failures without mock amounts", async () => {
@@ -234,10 +236,10 @@ test("balance reads the bound company address on Sepolia and reports failures wi
   let chainId = "0xaa36a7";
   const fetchMock = mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
     const payload = JSON.parse(String(options.body));
-    if (payload.method === "eth_chainId") return Response.json({ result: chainId });
+    if (payload.method === "eth_chainId") return Response.json({ jsonrpc: "2.0", id: 1, result: chainId });
     assert.equal(payload.method, "eth_getBalance");
     assert.deepEqual(payload.params, [address(50), "latest"]);
-    return Response.json({ result: "0xde0b6b3a7640000" });
+    return Response.json({ jsonrpc: "2.0", id: 1, result: "0xde0b6b3a7640000" });
   });
   try {
     const good = await balanceRoute.GET(request(owner), context(company.id));
@@ -258,10 +260,10 @@ test("production company storage fails closed without a configured persistent di
   try {
     env.NODE_ENV = "production";
     delete env.SNITCH_DATA_DIR;
-    assert.throws(() => getCompanyStore(), (error) => error instanceof CompanyError && error.status === 503);
+    assert.throws(() => getCompanyStore(), (error) => error instanceof DatabaseConfigurationError && error.status === 503);
     env.SNITCH_DATA_DIR = directory;
     env.VERCEL = "1";
-    assert.throws(() => getCompanyStore(), (error) => error instanceof CompanyError && error.status === 503);
+    assert.throws(() => getCompanyStore(), (error) => error instanceof DatabaseConfigurationError && error.status === 503);
   } finally {
     for (const [name, value] of Object.entries({ NODE_ENV: previousMode, SNITCH_DATA_DIR: previousPath, VERCEL: previousVercel })) {
       if (value === undefined) delete env[name];
@@ -270,128 +272,123 @@ test("production company storage fails closed without a configured persistent di
   }
 });
 
-test("Playground reservation requires auth and derives identity, purpose, and name on the server", async () => {
+function showcaseIdentity(overrides: Record<string, unknown> = {}) {
+  return [{ type: "email", address: SHOWCASE_COMPANY.cfoEmail }, wallet(60, {
+    address: SHOWCASE_COMPANY.walletAddress, id: SHOWCASE_COMPANY.privyWalletId, ...overrides,
+  })];
+}
+
+test("shared treasury rejects unauthenticated users and forged CFO identity without reserving wallets", async () => {
   assert.equal((await playgroundRoute.POST(request(undefined, {}, "POST"))).status, 401);
-  const owner = "did:privy:playground-owner";
-  const response = await playgroundRoute.POST(request(owner, {
-    ownerUserId: "did:privy:forged", name: "Forged", purpose: "company", address: address(60),
-    wallet: { status: "ready", address: address(60) },
+  const stranger = "did:privy:playground-visitor";
+  linkedWallets.set(stranger, showcaseIdentity());
+  const response = await playgroundRoute.POST(request(stranger, {
+    ownerUserId: SHOWCASE_COMPANY.cfoUserId, cfoUserId: SHOWCASE_COMPANY.cfoUserId,
+    email: SHOWCASE_COMPANY.cfoEmail, name: "Snitchpay.co", address: SHOWCASE_COMPANY.walletAddress,
   }));
-  assert.equal(response.status, 201);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  const company = (await response.json()).company;
-  assert.equal(company.ownerUserId, owner);
-  assert.equal(company.name, "Snitchpay.co");
-  assert.equal(company.purpose, "playground");
-  assert.deepEqual(company.wallet, { status: "pending" });
-  assert.match(company.id, /^[0-9a-f-]{36}$/);
-  assert.notEqual(company.id, "inst_final_snitch");
-  assert.equal(getCompanyStore().getPlaygroundForUser("did:privy:forged"), undefined);
-  assert.equal((await (await listRoute.GET(request(owner))).json()).companies[0].purpose, "playground");
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, "CFO_REQUIRED");
+  assert.deepEqual((await getCompanyStore().listForUser(stranger)), []);
 });
 
-test("concurrent Playground reservations return one durable account per owner", async () => {
-  const owner = "did:privy:playground-concurrent";
-  const responses = await Promise.all(Array.from({ length: 4 }, () => playgroundRoute.POST(request(owner, undefined, "POST"))));
-  assert.deepEqual(responses.map((response) => response.status).sort(), [200, 200, 200, 201]);
-  const companies = await Promise.all(responses.map(async (response) => (await response.json()).company));
-  assert.equal(new Set(companies.map((company) => company.id)).size, 1);
-  assert.equal(getCompanyStore().listForUser(owner).length, 1);
-  const stranger = "did:privy:playground-concurrent-other";
-  const other = await playgroundRoute.POST(request(stranger, undefined, "POST"));
-  assert.equal(other.status, 201);
-  const otherCompany = (await other.json()).company;
-  assert.notEqual(otherCompany.id, companies[0].id);
-  assert.equal(getCompanyStore().getForUser(owner, otherCompany.id), undefined);
-  const reopened = new CompanyStore(join(directory, "snitch.sqlite"));
-  try {
-    const replay = reopened.reservePlayground(owner, [address(61)]);
-    assert.equal(replay.created, false);
-    assert.deepEqual(replay.company, companies[0]);
-  } finally { reopened.close(); }
+test("restore requires Privy verified email plus the exact eligible existing wallet", async () => {
+  const owner = SHOWCASE_COMPANY.cfoUserId;
+  for (const identity of [[], [wallet(60)], showcaseIdentity({ delegated: true }),
+    showcaseIdentity({ imported: true }), showcaseIdentity({ user_can_sign: false }),
+    showcaseIdentity({ connector_type: "injected" }), showcaseIdentity({ id: "wrong-wallet" }),
+    showcaseIdentity({ address: address(60) }), showcaseIdentity().slice(1)]) {
+    linkedWallets.set(owner, identity);
+    const response = await playgroundRoute.POST(request(owner, undefined, "POST"));
+    assert.equal(response.status, 403);
+    assert.equal((await getCompanyStore().getForUser(owner, SHOWCASE_COMPANY.id)), undefined);
+  }
 });
 
-test("Playground and ordinary company setup honor the same pending reservation lock", async () => {
-  const normalOwner = "did:privy:normal-pending-before-playground";
-  const normal = await reserve(normalOwner, "Snitchpay.co");
-  assert.equal(normal.purpose, "company");
-  const blocked = await playgroundRoute.POST(request(normalOwner, undefined, "POST"));
-  assert.equal(blocked.status, 409);
-  const conflict = await blocked.json();
-  assert.equal(conflict.code, "COMPANY_SETUP_PENDING");
-  assert.equal(conflict.company.id, normal.id);
-  assert.equal(getCompanyStore().getPlaygroundForUser(normalOwner), undefined);
-  const playgroundOwner = "did:privy:playground-pending-before-normal";
-  const playground = (await (await playgroundRoute.POST(request(playgroundOwner, undefined, "POST"))).json()).company;
-  const normalBlocked = await listRoute.POST(request(playgroundOwner, { name: "New company", requestId: randomUUID() }));
-  assert.equal(normalBlocked.status, 409);
-  assert.equal((await normalBlocked.json()).company.id, playground.id);
-});
-
-test("Playground uses a fresh Privy-verified owner wallet and preserves its baseline on retries", async () => {
-  const owner = "did:privy:playground-bind";
-  linkedWallets.set(owner, [wallet(70)]);
-  const company = (await (await playgroundRoute.POST(request(owner, undefined, "POST"))).json()).company;
-  assert.deepEqual(company.baselineWalletAddresses, [address(70)]);
-  assert.equal((await walletRoute.POST(request(owner, { address: address(70) }), context(company.id))).status, 409);
-  assert.equal((await walletRoute.POST(request(owner, { address: address(71) }), context(company.id))).status, 403);
-  linkedWallets.set(owner, [wallet(70), wallet(71)]);
-  const resumed = (await (await playgroundRoute.POST(request(owner, undefined, "POST"))).json()).company;
-  assert.deepEqual(resumed.baselineWalletAddresses, [address(70)]);
-  assert.equal(resumed.walletCandidateAddress.toLowerCase(), address(71));
-  const response = await walletRoute.POST(request(owner, { address: address(71), privyWalletId: "forged" }), context(company.id));
+test("company listing restores the CFO's original ready treasury into fresh durable storage", async () => {
+  const owner = SHOWCASE_COMPANY.cfoUserId;
+  linkedWallets.set(owner, showcaseIdentity());
+  const response = await listRoute.GET(request(owner));
   assert.equal(response.status, 200);
-  const bound = (await response.json()).company;
-  assert.equal(bound.wallet.status, "ready");
-  assert.equal(bound.wallet.address.toLowerCase(), address(71));
-  assert.equal(bound.wallet.privyWalletId, "privy-wallet-71");
-  assert.equal((await walletRoute.POST(request("did:privy:playground-bind-stranger", { address: address(71) }), context(company.id))).status, 404);
-  linkedWallets.set(owner, [wallet(70), wallet(71), wallet(72)]);
-  assert.equal((await walletRoute.POST(request(owner, { address: address(72) }), context(company.id))).status, 409);
-  const replay = await playgroundRoute.POST(request(owner, undefined, "POST"));
-  assert.equal(replay.status, 200);
-  assert.deepEqual((await replay.json()).company, bound);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const company = (await response.json()).companies[0];
+  assert.equal(company.id, SHOWCASE_COMPANY.id);
+  assert.equal(company.ownerUserId, owner);
+  assert.equal(company.cfoUserId, owner);
+  assert.equal(company.purpose, "playground");
+  assert.deepEqual(company.wallet, { status: "ready", address: SHOWCASE_COMPANY.walletAddress, privyWalletId: SHOWCASE_COMPANY.privyWalletId });
+  assert.equal((await (await listRoute.GET(request("did:privy:other-viewer"))).json()).companies.length, 0);
+  const responses = await Promise.all(Array.from({ length: 4 }, () => playgroundRoute.POST(request(owner, undefined, "POST"))));
+  assert.deepEqual(responses.map(response => response.status), [200, 200, 200, 200]);
+  for (const replay of responses) assert.deepEqual((await replay.json()).company, company);
+  assert.equal((await getCompanyStore().listForUser(owner)).length, 1);
   const reopened = new CompanyStore(join(directory, "snitch.sqlite"));
-  try { assert.deepEqual(reopened.getPlaygroundForUser(owner), bound); }
+  try { assert.deepEqual((await reopened.getPlaygroundForUser(owner)), company); }
   finally { reopened.close(); }
 });
 
-test("the fixed Playground name cannot be renamed, including through forged purpose metadata", async () => {
-  const owner = "did:privy:playground-rename";
-  const company = (await (await playgroundRoute.POST(request(owner, undefined, "POST"))).json()).company;
-  const renamed = await renameRoute.PATCH(request(owner, { name: "Other", purpose: "company" }, "PATCH"), context(company.id));
-  assert.equal(renamed.status, 409);
-  assert.equal((await renamed.json()).code, "PLAYGROUND_NAME_FIXED");
-  const unchanged = await renameRoute.PATCH(request(owner, { name: "Snitchpay.co" }, "PATCH"), context(company.id));
-  assert.equal(unchanged.status, 200);
-  assert.deepEqual((await unchanged.json()).company, company);
-  assert.equal((await renameRoute.PATCH(request("did:privy:wrong-playground-owner", { name: "Other" }, "PATCH"), context(company.id))).status, 404);
+test("shared treasury restore never overwrites revoked CFO authority or wallet associations", async () => {
+  const path = join(directory, "showcase-restore-conflict.sqlite");
+  const store = new CompanyStore(path);
+  const verified = { address: SHOWCASE_COMPANY.walletAddress, id: SHOWCASE_COMPANY.privyWalletId };
+  try {
+    (await assert.rejects(async () => (await store.restoreVerifiedShowcase("did:privy:another", verified)),
+      (error) => error instanceof CompanyError && error.code === "CFO_REQUIRED"));
+    (await assert.rejects(async () => (await store.restoreVerifiedShowcase(SHOWCASE_COMPANY.cfoUserId, { ...verified, id: "wrong" })),
+      (error) => error instanceof CompanyError && error.code === "WALLET_NOT_OWNED"));
+    const initial = (await store.restoreVerifiedShowcase(SHOWCASE_COMPANY.cfoUserId, verified));
+    assert.equal(initial.created, true);
+    const db = new AsyncDatabase(path);
+    await db.prepare("UPDATE companies SET cfo_user_id = NULL WHERE id = ?").run(SHOWCASE_COMPANY.id);
+    db.close();
+    (await assert.rejects(async () => (await store.restoreVerifiedShowcase(SHOWCASE_COMPANY.cfoUserId, verified)),
+      (error) => error instanceof CompanyError && error.code === "SHOWCASE_CONFIGURATION_CONFLICT"));
+    assert.equal((await store.getForUser(SHOWCASE_COMPANY.cfoUserId, SHOWCASE_COMPANY.id))?.cfoUserId, null);
+  } finally { store.close(); }
 });
 
-test("Playground invoices use its real UUID and verified recipient, never the display ID or a client address", async () => {
-  const owner = "did:privy:playground-invoice";
-  const company = (await (await playgroundRoute.POST(request(owner, undefined, "POST"))).json()).company;
+test("the public treasury cannot be bound to an ordinary company even before restoration", async () => {
+  const store = new CompanyStore(join(directory, "showcase-reserved-address.sqlite"));
+  try {
+    const owner = "did:privy:wrong-company";
+    const company = (await store.reserve(owner, "Another company", randomUUID(), [])).company;
+    (await assert.rejects(async () => (await store.bindVerifiedWallet(owner, company.id, { address: SHOWCASE_COMPANY.walletAddress })),
+      (error) => error instanceof CompanyError && error.code === "WALLET_ALREADY_LINKED"));
+    (await assert.rejects(async () => (await store.bindVerifiedWallet(owner, company.id, { address: address(61), id: SHOWCASE_COMPANY.privyWalletId })),
+      (error) => error instanceof CompanyError && error.code === "WALLET_ALREADY_LINKED"));
+    assert.equal((await store.getForUser(owner, company.id))?.wallet.status, "pending");
+  } finally { store.close(); }
+});
+
+test("shared company name and deletion protection remain independent of client metadata", async () => {
+  const owner = SHOWCASE_COMPANY.cfoUserId;
+  const renamed = await renameRoute.PATCH(request(owner, { name: "Other", purpose: "company" }, "PATCH"), context(SHOWCASE_COMPANY.id));
+  assert.equal(renamed.status, 409);
+  assert.equal((await renamed.json()).code, "PLAYGROUND_NAME_FIXED");
+  assert.equal((await renameRoute.PATCH(request(owner, { name: "Snitchpay.co" }, "PATCH"), context(SHOWCASE_COMPANY.id))).status, 200);
+  assert.equal((await renameRoute.DELETE(request(owner, undefined, "DELETE"), context(SHOWCASE_COMPANY.id))).status, 409);
+  assert.equal((await renameRoute.PATCH(request("did:privy:visitor", { name: "Other" }, "PATCH"), context(SHOWCASE_COMPANY.id))).status, 404);
+});
+
+test("showcase invoices retain the real treasury while rejecting visitor writes and display aliases", async () => {
+  const owner = SHOWCASE_COMPANY.cfoUserId;
   const invoiceBody = {
-    companyId: company.id, invoiceAmount: "0.000000000000000001", currency: "ETH", network: "Ethereum Sepolia",
+    companyId: SHOWCASE_COMPANY.id, invoiceAmount: "0.000000000000000001", currency: "ETH", network: "Ethereum Sepolia",
     treasury: address(89), treasuryAddress: address(89), ownerId: "forged", companyName: "Forged",
   };
-  assert.equal((await invoiceRoute.POST(request(owner, invoiceBody))).status, 409);
-  linkedWallets.set(owner, [wallet(80)]);
-  assert.equal((await walletRoute.POST(request(owner, { address: address(80) }), context(company.id))).status, 200);
   const response = await invoiceRoute.POST(request(owner, invoiceBody));
   assert.equal(response.status, 201);
   const invoice = await response.json();
-  assert.equal(invoice.companyId, company.id);
+  assert.equal(invoice.companyId, SHOWCASE_COMPANY.id);
   assert.equal(invoice.companyName, "Snitchpay.co");
-  assert.equal(invoice.treasuryAddress.toLowerCase(), address(80));
+  assert.equal(invoice.treasuryAddress.toLowerCase(), SHOWCASE_COMPANY.walletAddress.toLowerCase());
   assert.equal(invoice.checkoutAvailable, true);
   assert.match(invoice.invoiceId, /^INV-[0-9A-F-]{36}$/);
   assert.equal((await invoiceRoute.POST(request(owner, { ...invoiceBody, companyId: "inst_final_snitch" }))).status, 404);
-  assert.equal((await invoiceRoute.POST(request("did:privy:foreign-playground-invoice", invoiceBody))).status, 404);
-  assert.equal((await balanceRoute.GET(request("did:privy:foreign-playground-invoice"), context(company.id))).status, 404);
+  assert.equal((await invoiceRoute.POST(request("did:privy:visitor", invoiceBody))).status, 404);
+  assert.equal((await balanceRoute.GET(request("did:privy:visitor"), context(SHOWCASE_COMPANY.id))).status, 404);
 });
 
-test("legacy SQLite rows migrate as ordinary companies without changing a bound wallet", () => {
+test("legacy SQLite rows migrate as ordinary companies without changing a bound wallet", async () => {
   const path = join(directory, "legacy.sqlite");
   const legacy = new DatabaseSync(path);
   const id = randomUUID();
@@ -407,17 +404,13 @@ test("legacy SQLite rows migrate as ordinary companies without changing a bound 
   legacy.close();
   const migrated = new CompanyStore(path);
   try {
-    const company = migrated.getForUser(owner, id)!;
+    const company = (await migrated.getForUser(owner, id))!;
     assert.equal(company.purpose, "company");
     assert.equal(company.wallet.address, address(90));
     assert.equal(company.name, "Snitchpay.co");
-    assert.equal(migrated.getPlaygroundForUser(owner), undefined);
-    const playground = migrated.reservePlayground(owner, [address(90)]);
-    assert.equal(playground.created, true);
-    assert.notEqual(playground.company.id, id);
-    assert.equal(playground.company.purpose, "playground");
-    assert.equal(migrated.listForUser(owner).length, 2);
-    assert.throws(() => migrated.bindVerifiedWallet(owner, playground.company.id, { address: address(90) }),
-      (error) => error instanceof CompanyError && error.code === "WALLET_PREDATES_COMPANY");
+    assert.equal((await migrated.getPlaygroundForUser(owner)), undefined);
+    assert.equal((await migrated.listForUser(owner)).length, 1);
+    (await assert.rejects(async () => (await migrated.restoreVerifiedShowcase(owner, { address: SHOWCASE_COMPANY.walletAddress, id: SHOWCASE_COMPANY.privyWalletId })),
+      (error) => error instanceof CompanyError && error.code === "CFO_REQUIRED"));
   } finally { migrated.close(); }
 });

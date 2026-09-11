@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 const excluded = /(^|\/)(node_modules|\.next|\.data|coverage|playwright-report|test-results)(\/|$)|(^|\/)\.env(\..*)?$|\.(sqlite(?:-.*)?|db(?:-.*)?|pem|key|p12|pfx|log|tsbuildinfo)$/i;
 const patterns = [
+  ['JWT credential', /\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/],
   ['Privy app secret', /privy_app_secret_[A-Za-z0-9]{24,}/],
   ['GitHub access token', /(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{50,})/],
   ['Private key material', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],

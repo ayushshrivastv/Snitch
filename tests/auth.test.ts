@@ -33,9 +33,9 @@ before(async () => {
   invoiceStore = await import("../src/lib/invoices");
 });
 
-after(() => {
+after(async () => {
   auth?.restore();
-  companies?.restore();
+  (await companies?.restore());
   if (previousTreasury === undefined) delete process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS;
   else process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS = previousTreasury;
   if (previousResendKey === undefined) delete process.env.RESEND_API_KEY;
@@ -56,15 +56,15 @@ function request(path: string, token?: string, body?: unknown) {
 async function createOwnedInvoice(userId = fixtureUserId, overrides: Record<string, unknown> = {}) {
   let companyId = companyIds.get(userId);
   if (!companyId) {
-    companyId = companies.create(userId, "Stored company", userId === fixtureUserId
+    companyId = (await companies.create(userId, "Stored company", userId === fixtureUserId
       ? "0x1111111111111111111111111111111111111111"
-      : "0x2222222222222222222222222222222222222222").id;
+      : "0x2222222222222222222222222222222222222222")).id;
     companyIds.set(userId, companyId);
   }
   const response = await invoiceRoute.POST(request("/api/invoices", auth.token({ userId }), { ...validInvoice, companyId, ...overrides }));
   assert.equal(response.status, 201);
   const { invoiceId } = await response.json();
-  const invoice = invoiceStore.getInvoice(invoiceId);
+  const invoice = (await invoiceStore.getInvoice(invoiceId));
   assert.ok(invoice);
   return invoice;
 }
@@ -127,16 +127,16 @@ test("missing server configuration returns 503 without exposing credentials", as
 test("invoice ownership is assigned from verified identity, ignoring a client-supplied owner", async () => {
   const invoice = await createOwnedInvoice(fixtureUserId, { ownerId: "did:privy:forged-owner" });
   assert.equal(invoice.ownerId, fixtureUserId);
-  assert.deepEqual(invoiceStore.getInvoiceForOwner(invoice.id, fixtureUserId), invoice);
-  assert.equal(invoiceStore.getInvoiceForOwner(invoice.id, "did:privy:another-user"), undefined);
+  assert.deepEqual((await invoiceStore.getInvoiceForOwner(invoice.id, fixtureUserId)), invoice);
+  assert.equal((await invoiceStore.getInvoiceForOwner(invoice.id, "did:privy:another-user")), undefined);
 });
 
 test("invoice email rejects unknown, unowned, or another user's invoice before any provider request", async () => {
   const foreign = await createOwnedInvoice("did:privy:another-user");
-  const legacy = invoiceStore.createInvoice({
+  const legacy = (await invoiceStore.createInvoice({
     amount: "0.01", customerName: "Legacy customer", title: "Legacy invoice", memo: "",
     dueDate: "2028-02-29", paymentTerms: "Due on receipt", treasuryAccount: "Legacy company",
-  });
+  }));
   const fetchMock = mock.method(globalThis, "fetch", async () => {
     assert.fail("An unauthorized invoice must never reach the email provider.");
   });

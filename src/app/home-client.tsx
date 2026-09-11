@@ -20,6 +20,8 @@ import { useWorkspaceSession } from "@/components/auth/workspace-session";
 import { useCompanyWallets } from "@/components/auth/company-wallet-provider";
 import { CompanyTreasuryPanel } from "@/components/auth/company-treasury-panel";
 import { WalletPage } from "@/components/wallets/wallet-page";
+import { ShowcaseTreasuryPanel } from "@/components/wallets/showcase-treasury-panel";
+import { SHOWCASE_COMPANY } from "@/lib/showcase-company";
 import type { WalletActivity } from "@/lib/wallet-activity";
 import { formatRecordDateTime, formatSavedRecordDate } from "@/lib/record-date";
 import { resolveWalletCompany } from "@/lib/company-selection";
@@ -1832,11 +1834,11 @@ function DashboardView({
                       </span>
                     </span>
 
-                    <span className="flex min-h-11 items-center justify-between gap-3 border-t border-border bg-muted/35 px-4 pr-12">
+                    <span className="flex min-h-11 items-center justify-between gap-3 border-t border-border bg-muted/35 px-4">
                       {instance.activity ? <span className="truncate text-xs font-medium text-muted-foreground">
                         {instance.activity}
                       </span> : null}
-                      <span className="ml-auto shrink-0 text-[0.68rem] text-muted-foreground">
+                      <span className={`shrink-0 text-[0.68rem] text-muted-foreground${instance.activity ? " ml-auto" : ""}`}>
                         {instance.createdAt}
                       </span>
                     </span>
@@ -2788,7 +2790,9 @@ function WalletsView({
             <button type="button" onClick={() => setActiveNav("Dashboard")} className="inline-flex min-h-10 items-center gap-2 rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src="/snitch-logo.png" alt="" width={24} height={24} />Snitch</button>
             <label className="min-w-0"><span className="sr-only">Company account</span><select value={selectedAccountId} onChange={event => setSelectedAccountId(event.target.value)} className="min-h-10 max-w-48 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{instances.map(instance => <option key={instance.id} value={instance.id}>{instance.name}</option>)}</select></label>
           </div>
-          {companyWallets && walletCompany && (walletCompany.wallet.status === "ready" || selectedAccountId !== DEMO_COMPANY_ID) ?
+          {selectedAccountId === DEMO_COMPANY_ID ?
+            <ShowcaseTreasuryPanel activity={activity} {...navigation} onManageAccess={() => setActiveNav("Connect")} /> :
+            companyWallets && walletCompany ?
             <CompanyTreasuryPanel key={walletCompany.id} companyId={walletCompany.id} environment={selectedAccountId === DEMO_COMPANY_ID ? "Playground" : "Testnet"} activity={activity} {...navigation} onManageAccess={() => setActiveNav("Connect")} /> :
             <WalletPage key={selectedAccountId} companyName={instances.find(instance => instance.id === selectedAccountId)?.name ?? "Your company"} environment={selectedAccountId === DEMO_COMPANY_ID ? "Playground" : "Testnet"} balance={null} balanceState="unavailable" activity={activity} {...navigation} signInToConnect={!companyWallets} setupLabel={walletCompany ? "Finish wallet setup" : "Connect company wallet"} onSetupWallet={companyWallets && selectedAccountId === DEMO_COMPANY_ID ? () => companyWallets.connectPlaygroundWallet() : undefined} onManageAccess={() => setActiveNav("Connect")} />}
         </section>
@@ -4310,8 +4314,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
   const visibleInstances = useMemo(
     () =>
       companyWallets ? [...initialInstances.map(instance => {
-        const playground = resolveWalletCompany(companyWallets.companies, instance.id);
-        return instance.id === DEMO_COMPANY_ID && playground ? { ...instance, treasuryAddress: playground.wallet.address, walletStatus: playground.wallet.status } : instance;
+        return instance.id === DEMO_COMPANY_ID ? { ...instance, treasuryAddress: SHOWCASE_COMPANY.walletAddress, walletStatus: "ready" as const } : instance;
       }), ...companyWallets.companies.filter(company => company.purpose !== "playground").map(company => ({
         id: company.id, name: company.name, initials: getInitials(company.name),
         receivers: "0 receivers", status: "Testnet", statusTone: "success" as StatusTone,
@@ -4322,7 +4325,7 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
         .filter((instance) => !legacyDemoAccountIds.has(instance.id))
         .map((instance) =>
           instance.id === "inst_final_snitch"
-            ? { ...instance, name: "Snitchpay.co", initials: "SC", status: "Playground", activity: "" }
+            ? { ...instance, name: "Snitchpay.co", initials: "SC", status: "Playground", activity: "", treasuryAddress: SHOWCASE_COMPANY.walletAddress, walletStatus: "ready" as const }
             : instance,
         ),
     [instances, companyWallets],
@@ -4334,8 +4337,24 @@ export default function HomePage({ workspace = false }: { workspace?: boolean } 
     : visibleInstances[0]?.id ?? "";
   const activeWalletCompany = resolveWalletCompany(companyWallets?.companies ?? [], activeAccountId);
   const teamScope = `${session?.user.id ?? "showcase"}:${activeAccountId}`;
-  // The controller's CFO role comes from the server, never from editable team state.
-  const controllerTeam: AccessMember[] = activeAccountId ? [
+  // The shared company's designated CFO is public directory information. Export
+  // authority is independently verified by the server and Privy, not this row.
+  const controllerTeam: AccessMember[] = activeAccountId === DEMO_COMPANY_ID ? [
+    {
+      id: "company_controller",
+      name: SHOWCASE_COMPANY.cfoName,
+      email: SHOWCASE_COMPANY.cfoEmail,
+      role: "CFO",
+      protected: true,
+    },
+    ...(session && session.user.id !== SHOWCASE_COMPANY.cfoUserId ? [{
+      id: "current_viewer",
+      name: session.user.name,
+      email: session.user.email ?? "—",
+      role: "View only" as AccessRole,
+      protected: true,
+    }] : []),
+  ] : activeAccountId ? [
     {
       id: "company_controller",
       name: session?.user.name ?? demoUser.name,

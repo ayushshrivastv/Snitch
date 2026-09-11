@@ -10,7 +10,7 @@ export async function GET(request: Request, context: { params: Promise<{ company
   if ("response" in auth) return auth.response;
   try {
     const { companyId } = await context.params;
-    if (!getCompanyForUser(auth.userId, companyId)) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
-    return companyResponse({ invoices: getInvoiceStore().listForCompany(auth.userId, companyId) });
+    if (!await getCompanyForUser(auth.userId, companyId)) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
+    return companyResponse({ invoices: await getInvoiceStore().listForCompany(auth.userId, companyId) });
   } catch (error) { return companyErrorResponse(error); }
 }

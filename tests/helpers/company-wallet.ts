@@ -11,10 +11,10 @@ export async function installCompanyFixture() {
   const invoiceStore = await import("../../src/lib/invoice-store");
 
   return {
-    create(userId: string, name: string, address?: string) {
-      const { company } = store.reserveCompanyForUser(userId, name, randomUUID(), []);
+    async create(userId: string, name: string, address?: string) {
+      const { company } = (await store.reserveCompanyForUser(userId, name, randomUUID(), []));
       return address
-        ? store.bindVerifiedCompanyWallet(userId, company.id, { address, id: `wallet-${randomUUID()}` })
+        ? (await store.bindVerifiedCompanyWallet(userId, company.id, { address, id: `wallet-${randomUUID()}` }))
         : company;
     },
     restore() {

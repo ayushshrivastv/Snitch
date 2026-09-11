@@ -11,11 +11,11 @@ The current implementation executes **native ETH transfers on Ethereum Sepolia**
 - Invoices use the selected company's receiving wallet. Hosted checkout accepts a customer wallet transfer, then verifies its network, recipient, amount, and invoice reference before recording payment.
 - Company payouts request the selected wallet's signature through Privy. The server verifies the broadcast transfer and persists its status without resending it.
 - Wallets show RPC balances, recorded activity, charts, and export settings. Snitch's export flow requires the assigned CFO to verify a single-use signature before opening Privy's protected export interface.
-- The public Snitchpay.co showcase retains historical Ethereum Sepolia and Base Sepolia transfers alongside illustrative records. A signed-in user can connect their own separate Snitchpay.co treasury for live Sepolia testing.
+- The public Snitchpay.co showcase retains historical Ethereum Sepolia and Base Sepolia transfers alongside illustrative records. Every visitor sees the same existing Snitchpay.co treasury address and its live Sepolia balance. Its designated CFO controls signing and key export; creating an ordinary company creates a separate company wallet.
 
 ## Local setup
 
-Use **Node.js 22.x, version 22.14 or newer**, and npm. The storage layer requires Node's built-in `node:sqlite` module.
+Use **Node.js 22.x, version 22.14 or newer**, and npm. The asynchronous libSQL storage layer uses a local SQLite file in development and Turso in Vercel production.
 
 ```bash
 npm ci
@@ -38,8 +38,9 @@ Open [127.0.0.1:3000](http://127.0.0.1:3000). The public preview is available at
 | `PRIVY_APP_SECRET` | Server-only Privy credential for token and account verification. |
 | `NEXT_PUBLIC_ETHEREUM_RPC_URL` | Browser Sepolia RPC URL; defaults to the public endpoint in `.env.example`. |
 | `ETHEREUM_RPC_URL` | Optional server Sepolia RPC override for balances and verification. |
-| `SNITCH_DATA_DIR` | Persistent database directory; defaults to `.data` during development. An absolute path is required in production. |
-| `SNITCH_API_ORIGIN` | Optional HTTPS origin for a persistent Snitch backend. Set on Vercel to proxy `/api/*` while keeping the Vercel frontend URL. |
+| `TURSO_DATABASE_URL` | Server-only remote libSQL URL, required on Vercel. |
+| `TURSO_AUTH_TOKEN` | Server-only database-scoped read/write credential. |
+| `SNITCH_DATA_DIR` | Local database directory; defaults to `.data`. Only persistent Node hosts may use local files in production. |
 | `SNITCH_PUBLIC_ORIGIN` | Public frontend origin used by the backend when it generates hosted checkout links. |
 | `RESEND_API_KEY` | Optional email credential. The current sender is Resend's development sender; configure an approved sender before general delivery. |
 | `NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS` | Legacy invoice-helper fallback. Authenticated invoice creation always uses the stored company wallet. |
@@ -48,7 +49,7 @@ Keep `.env.local`, database files, tokens, and private keys out of source contro
 
 ## Storage and wallet authority
 
-Companies, wallet bindings, invoices, confirmed payments, payouts, and export challenges persist in `.data/snitch.sqlite`. Profile names are saved in Privy custom metadata. Snitch records public wallet identifiers and payment data; it does not receive private keys or register a server signer.
+Companies, wallet bindings, invoices, confirmed payments, payouts, and export challenges persist in Turso on Vercel and `.data/snitch.sqlite` during local development. Profile names are saved in Privy custom metadata. Snitch records public wallet identifiers and payment data; it does not receive private keys or register a server signer.
 
 The company creator controls the embedded wallet through their Privy identity and is assigned CFO in Snitch. CFO verification gates the normal **Snitch export flow**, not Privy's independent owner recovery capabilities. Connect's other editable roles are interface state; they do not grant shared signing authority or create persisted invitations.
 
@@ -90,15 +91,15 @@ npm run build
 SNITCH_DATA_DIR="$PWD/.data" npm run start
 ```
 
-The current deployment model is one Node service with persistent SQLite storage. Ephemeral serverless and multi-region storage are unsupported. Use HTTPS, exact Privy allowed origins, a persistent volume, and database backups for a hosted test environment. Compliance controls, API-key issuance, multi-user wallet policies, and stablecoin settlement remain outside the implemented backend.
+Production runs entirely on Vercel at `https://snitchpay.vercel.app` with remote libSQL storage. All instances share the same company and wallet records. Use HTTPS, exact Privy allowed origins, server-only database credentials, and database backups. Compliance controls, API-key issuance, multi-user wallet policies, and stablecoin settlement remain outside the implemented backend.
 
 ### Vercel builds
 
 `vercel.json` selects the Next.js framework, installs the locked dependencies including build tooling, and runs `npm run build`. This preserves the project's `next build --webpack` command and its Privy connector alias. Running bare `next build` selects Turbopack and fails against the Webpack configuration. The Node engine range keeps deployments on supported Node 22 releases.
 
-A successful Vercel build can serve the public landing page and showcase, but it does not make the current SQLite backend compatible with Vercel functions. Authenticated company operations, wallet bindings, invoices, payouts, balances, and export approval require the persistent backend. Keep the full application on a Node web service with a persistent disk, or migrate these stores to a managed database before using them on Vercel. Setting `SNITCH_DATA_DIR` to `/tmp` does not provide durable storage.
+Set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, the Privy credentials, and `SNITCH_PUBLIC_ORIGIN=https://snitchpay.vercel.app` in Vercel before redeploying. API routes and hosted checkout use the same remote database; no separate backend or API proxy is required. Local SQLite files and `/tmp` are rejected in Vercel functions.
 
-To keep the Vercel frontend, deploy the same commit to a single Render web service with a persistent disk, then set `SNITCH_API_ORIGIN` on Vercel to that service's HTTPS origin. Set `SNITCH_PUBLIC_ORIGIN` on Render to the Vercel production origin so emailed checkout links return to the public site. The Render service still requires `SNITCH_DATA_DIR` to point to its mounted disk and the same Privy credentials. Do not set `SNITCH_API_ORIGIN` on Render.
+See [Vercel database setup](docs/vercel-database.md) for schema initialization and migration. Preserve existing company/CFO/wallet associations when importing records; expired export approvals must not move to the new environment.
 
 ## Further documentation
 

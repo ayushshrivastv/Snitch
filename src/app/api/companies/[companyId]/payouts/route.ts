@@ -21,8 +21,8 @@ export async function GET(request: Request, context: { params: Promise<{ company
   if ("response" in auth) return auth.response;
   try {
     const { companyId } = await context.params;
-    if (!getCompanyForUser(auth.userId, companyId)) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
-    return companyResponse({ payouts: getCompanyPayoutStore().listForCompany(auth.userId, companyId) });
+    if (!await getCompanyForUser(auth.userId, companyId)) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
+    return companyResponse({ payouts: await getCompanyPayoutStore().listForCompany(auth.userId, companyId) });
   } catch (error) { return companyErrorResponse(error); }
 }
 
@@ -31,7 +31,7 @@ export async function POST(request: Request, context: { params: Promise<{ compan
   if ("response" in auth) return auth.response;
   try {
     const { companyId } = await context.params;
-    const company = getCompanyForUser(auth.userId, companyId);
+    const company = await getCompanyForUser(auth.userId, companyId);
     if (!company) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
     if (company.wallet.status !== "ready" || !company.wallet.address) throw new CompanyError("Finish setting up your company wallet first.", 409, "COMPANY_WALLET_PENDING");
     const body = await companyRequestBody(request);
@@ -50,7 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ compan
       if (error instanceof CompanyPaymentVerificationError) return companyResponse({ error: error.message, code: "PAYMENT_NOT_VERIFIED" }, error.status);
       return companyResponse({ error: "Saving this payout is temporarily unavailable. Keep its transaction hash and retry saving; do not send it again.", code: "PAYOUT_VERIFICATION_UNAVAILABLE" }, 503);
     }
-    const payout = getCompanyPayoutStore().saveVerified(auth.userId, companyId, {
+    const payout = await getCompanyPayoutStore().saveVerified(auth.userId, companyId, {
       from: company.wallet.address, to, amount: body.amount, receiverName: receiverName || undefined, memo, confirmation,
     });
     return companyResponse({ payout });

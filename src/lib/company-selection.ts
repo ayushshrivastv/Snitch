@@ -1,11 +1,12 @@
 import type { CompanyAccount } from "./company-types";
+import { isShowcaseCompany } from "./showcase-company";
 
 export const PLAYGROUND_ACCOUNT_ID = "inst_final_snitch";
 
-// The public showcase ID is a display alias, never a shared signing authority.
-// The authenticated provider supplies only the current owner's companies.
+// The public showcase ID resolves only to the original treasury's server record.
+// A public wallet address alone never supplies signing authority.
 export function resolveWalletCompany(companies: readonly CompanyAccount[], accountId: string) {
   return accountId === PLAYGROUND_ACCOUNT_ID
-    ? companies.find(company => company.purpose === "playground")
+    ? companies.find(isShowcaseCompany)
     : companies.find(company => company.id === accountId);
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getInvoiceForOwner } from "@/lib/invoices";
+import { getInvoiceForOwner, type Invoice } from "@/lib/invoices";
 import { requirePrivyUser } from "@/lib/privy-server";
 
 function text(value: unknown) {
@@ -68,7 +68,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const storedInvoice = getInvoiceForOwner(invoiceId, auth.userId);
+  let storedInvoice: Invoice | undefined;
+  try {
+    storedInvoice = await getInvoiceForOwner(invoiceId, auth.userId);
+  } catch {
+    return NextResponse.json(
+      { error: "Invoice records are temporarily unavailable. Please try again." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   if (!storedInvoice) {
     return NextResponse.json(
       { error: "Invoice not found." },

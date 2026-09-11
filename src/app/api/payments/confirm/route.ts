@@ -8,12 +8,13 @@ import {
   PaymentVerificationError,
   verifyEthPayment,
 } from "../../../../../services/ethereum";
-import { getInvoice } from "@/lib/invoices";
+import { getInvoice, type Invoice } from "@/lib/invoices";
 import {
   getConfirmedPayment,
   getInvoiceIdForTransaction,
   PaymentConfirmationConflictError,
   saveConfirmedPayment,
+  type ConfirmedInvoicePayment,
 } from "@/lib/payment-confirmations";
 
 type ConfirmPaymentBody = {
@@ -30,7 +31,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const invoice = getInvoice(body.invoiceId);
+  const transactionHash = body.transactionHash.toLowerCase();
+  let invoice: Invoice | undefined;
+  let existing: ConfirmedInvoicePayment | undefined;
+  let linkedInvoice: string | undefined;
+  try {
+    invoice = await getInvoice(body.invoiceId);
+    [existing, linkedInvoice] = await Promise.all([
+      getConfirmedPayment(body.invoiceId),
+      getInvoiceIdForTransaction(transactionHash),
+    ]);
+  } catch {
+    return NextResponse.json(
+      { error: "Payment records are temporarily unavailable. Please try again." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   if (!invoice) {
     return NextResponse.json({ error: "Invoice not found. Create a new invoice before paying." }, { status: 404 });
   }
@@ -38,12 +54,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This invoice does not have a configured Ethereum receiving address." }, { status: 503 });
   }
 
-  const existing = getConfirmedPayment(invoice.id);
   if (existing) {
     return NextResponse.json({ ok: true, alreadyConfirmed: true, payment: existing, status: existing.status });
   }
-  const transactionHash = body.transactionHash.toLowerCase();
-  const linkedInvoice = getInvoiceIdForTransaction(transactionHash);
   if (linkedInvoice && linkedInvoice !== invoice.id) {
     return NextResponse.json({ error: "This transaction is already tied to another invoice." }, { status: 409 });
   }
@@ -55,18 +68,27 @@ export async function POST(request: Request) {
       transactionHash,
       provider,
     });
-    const payment = saveConfirmedPayment({
-      invoiceId: invoice.id,
-      amount: invoice.amount,
-      currency: "ETH",
-      chainId: ETHEREUM_CHAIN_ID,
-      transactionHash,
-      ...verified,
-      status: "Succeeded",
-      confirmationStatus: "confirmed",
-      confirmedAt: new Date().toISOString(),
-      explorerUrl: getEthereumExplorerUrl(transactionHash),
-    });
+    let payment: ConfirmedInvoicePayment;
+    try {
+      payment = await saveConfirmedPayment({
+        invoiceId: invoice.id,
+        amount: invoice.amount,
+        currency: "ETH",
+        chainId: ETHEREUM_CHAIN_ID,
+        transactionHash,
+        ...verified,
+        status: "Succeeded",
+        confirmationStatus: "confirmed",
+        confirmedAt: new Date().toISOString(),
+        explorerUrl: getEthereumExplorerUrl(transactionHash),
+      });
+    } catch (error) {
+      if (error instanceof PaymentConfirmationConflictError) throw error;
+      return NextResponse.json(
+        { error: "The transaction was verified, but its receipt could not be saved. Retry confirmation; do not send another payment." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return NextResponse.json({ ok: true, payment, status: payment.status });
   } catch (error) {
     if (error instanceof PaymentVerificationError) {

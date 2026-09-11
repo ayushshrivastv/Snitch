@@ -127,19 +127,19 @@ test("wrong chain, amount, recipient, or invoice reference cannot confirm paymen
   }), (error: unknown) => error instanceof PaymentVerificationError && error.status === 503);
 });
 
-test("a transaction can confirm one invoice only, including case variants and concurrent retries", () => {
+test("a transaction can confirm one invoice only, including case variants and concurrent retries", async () => {
   const store = new InvoiceStore(":memory:");
-  store.saveInvoice({ ...invoice, currency: "ETH", customerName: "Customer", title: "Invoice", memo: "", dueDate: "2026-09-12", createdAt: "2026-09-11", paymentTerms: "Due on receipt", treasuryAccount: "Company" });
+  (await store.saveInvoice({ ...invoice, currency: "ETH", customerName: "Customer", title: "Invoice", memo: "", dueDate: "2026-09-12", createdAt: "2026-09-11", paymentTerms: "Due on receipt", treasuryAccount: "Company" }));
   const payment: ConfirmedInvoicePayment = {
     invoiceId: invoice.id, amount: invoice.amount, currency: "ETH", chainId: ETHEREUM_CHAIN_ID,
     transactionHash, payer, treasury, blockNumber: 123, status: "Succeeded",
     confirmationStatus: "confirmed", confirmedAt: new Date().toISOString(), explorerUrl: "https://sepolia.etherscan.io/tx/" + transactionHash,
   };
   try {
-    const saved = store.savePayment(payment);
-    assert.deepEqual(store.savePayment(payment), saved);
-    assert.equal(store.getInvoiceIdForTransaction(`0x${"AB".repeat(32)}`), invoice.id);
-    assert.throws(() => store.savePayment({ ...payment, invoiceId: "INV-OTHER", transactionHash: `0x${"AB".repeat(32)}` }), PaymentConfirmationConflictError);
-    assert.throws(() => store.savePayment({ ...payment, transactionHash: `0x${"cd".repeat(32)}` }), PaymentConfirmationConflictError);
+    const saved = (await store.savePayment(payment));
+    assert.deepEqual((await store.savePayment(payment)), saved);
+    assert.equal((await store.getInvoiceIdForTransaction(`0x${"AB".repeat(32)}`)), invoice.id);
+    (await assert.rejects(async () => (await store.savePayment({ ...payment, invoiceId: "INV-OTHER", transactionHash: `0x${"AB".repeat(32)}` })), PaymentConfirmationConflictError));
+    (await assert.rejects(async () => (await store.savePayment({ ...payment, transactionHash: `0x${"cd".repeat(32)}` })), PaymentConfirmationConflictError));
   } finally { store.close(); }
 });

@@ -31,10 +31,10 @@ before(async () => {
   payoutsRoute = await import("../src/app/api/companies/[companyId]/payouts/route");
   confirmRoute = await import("../src/app/api/companies/[companyId]/payouts/confirm/route");
   const store = getCompanyStore();
-  companyId = store.reserve(owner, "Snitchpay.co", randomUUID(), []).company.id;
-  store.bindVerifiedWallet(owner, companyId, { address: from });
-  otherCompanyId = store.reserve(stranger, "Other company", randomUUID(), []).company.id;
-  store.bindVerifiedWallet(stranger, otherCompanyId, { address: other });
+  companyId = (await store.reserve(owner, "Snitchpay.co", randomUUID(), [])).company.id;
+  (await store.bindVerifiedWallet(owner, companyId, { address: from }));
+  otherCompanyId = (await store.reserve(stranger, "Other company", randomUUID(), [])).company.id;
+  (await store.bindVerifiedWallet(stranger, otherCompanyId, { address: other }));
 });
 after(() => {
   getCompanyPayoutStore().close();
@@ -92,10 +92,10 @@ test("pending observed payout is durable, exact in wei, and repeated saves are i
   assert.equal(replay.createdAt, payout.createdAt);
   const reopened = new CompanyPayoutStore(join(directory, "snitch.sqlite"));
   try {
-    assert.equal(reopened.listForCompany(owner, companyId).filter(item => item.transactionHash === hash(2)).length, 1);
-    assert.equal(reopened.listForCompany(owner, companyId).find(item => item.id === payout.id)?.memo, "INV-024");
-    assert.throws(() => reopened.listForCompany(stranger, companyId), /Company not found/);
-    assert.deepEqual(reopened.listForCompany(stranger, otherCompanyId), []);
+    assert.equal((await reopened.listForCompany(owner, companyId)).filter(item => item.transactionHash === hash(2)).length, 1);
+    assert.equal((await reopened.listForCompany(owner, companyId)).find(item => item.id === payout.id)?.memo, "INV-024");
+    (await assert.rejects(async () => (await reopened.listForCompany(stranger, companyId)), /Company not found/));
+    assert.deepEqual((await reopened.listForCompany(stranger, otherCompanyId)), []);
   } finally { reopened.close(); }
 });
 
@@ -127,7 +127,7 @@ test("an unindexed or fabricated hash cannot create a durable blockchain payout"
   const confirmation = await confirmRoute.POST(request(owner, input(3)), context());
   assert.equal(confirmation.status, 200);
   assert.equal((await confirmation.json()).status, "Incomplete");
-  assert.equal(getCompanyPayoutStore().listForCompany(owner, companyId).some(item => item.transactionHash === hash(3)), false);
+  assert.equal((await getCompanyPayoutStore().listForCompany(owner, companyId)).some(item => item.transactionHash === hash(3)), false);
 });
 
 test("a forged success status and another wallet's transfer cannot be persisted", async t => {
@@ -137,7 +137,7 @@ test("a forged success status and another wallet's transfer cannot be persisted"
   });
   const response = await payoutsRoute.POST(request(owner, { ...input(4), from: other, status: "Succeeded" }), context());
   assert.equal(response.status, 422);
-  assert.equal(getCompanyPayoutStore().listForCompany(owner, companyId).some(item => item.transactionHash === hash(4)), false);
+  assert.equal((await getCompanyPayoutStore().listForCompany(owner, companyId)).some(item => item.transactionHash === hash(4)), false);
 });
 
 test("confirmation can recover a missed save and later metadata updates retain its reference", async t => {
@@ -146,7 +146,7 @@ test("confirmation can recover a missed save and later metadata updates retain i
     return Response.json({ result: rpcResult(call.method, hash(5), { status: 0 }) });
   });
   assert.equal((await confirmRoute.POST(request(owner, input(5)), context())).status, 200);
-  const original = getCompanyPayoutStore().listForCompany(owner, companyId).find(item => item.transactionHash === hash(5))!;
+  const original = (await getCompanyPayoutStore().listForCompany(owner, companyId)).find(item => item.transactionHash === hash(5))!;
   assert.equal(original.status, "Failed");
   const saved = (await (await payoutsRoute.POST(request(owner, { ...input(5), receiverName: "Recovered recipient" }), context())).json()).payout;
   assert.equal(saved.id, original.id);
@@ -155,9 +155,9 @@ test("confirmation can recover a missed save and later metadata updates retain i
   assert.equal(saved.createdAt, original.createdAt);
 });
 
-test("recorded hashes cannot be reassigned to a different owner or amount", () => {
+test("recorded hashes cannot be reassigned to a different owner or amount", async () => {
   const store = getCompanyPayoutStore();
   const confirmation = { transactionHash: hash(2), status: "Incomplete" as const, explorerUrl: `https://sepolia.etherscan.io/tx/${hash(2)}` };
-  assert.throws(() => store.saveVerified(stranger, otherCompanyId, { from: other, to, amount: "0.000000000000000001", confirmation }), /already recorded/);
-  assert.throws(() => store.saveVerified(owner, companyId, { from, to, amount: "1", confirmation }), /already recorded/);
+  (await assert.rejects(async () => (await store.saveVerified(stranger, otherCompanyId, { from: other, to, amount: "0.000000000000000001", confirmation })), /already recorded/));
+  (await assert.rejects(async () => (await store.saveVerified(owner, companyId, { from, to, amount: "1", confirmation })), /already recorded/));
 });

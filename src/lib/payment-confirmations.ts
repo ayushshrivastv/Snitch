@@ -20,10 +20,9 @@ export function getConfirmedPayment(invoiceId: string) {
   return getInvoiceStore().getPayment(invoiceId);
 }
 
-export function getConfirmedPayments(invoiceIds: string[]) {
-  return invoiceIds
-    .map((invoiceId) => getConfirmedPayment(invoiceId))
-    .filter((payment): payment is ConfirmedInvoicePayment => Boolean(payment));
+export async function getConfirmedPayments(invoiceIds: string[]) {
+  const payments = await Promise.all(invoiceIds.map(invoiceId => getConfirmedPayment(invoiceId)));
+  return payments.filter((payment): payment is ConfirmedInvoicePayment => Boolean(payment));
 }
 
 export function getInvoiceIdForTransaction(transactionHash: string) {

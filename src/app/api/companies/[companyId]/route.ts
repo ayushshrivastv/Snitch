@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ compa
   try {
     const { companyId } = await context.params;
     const name = validateCompanyName((await companyRequestBody(request)).name);
-    return companyResponse({ company: getCompanyStore().rename(auth.userId, companyId, name) });
+    return companyResponse({ company: await getCompanyStore().rename(auth.userId, companyId, name) });
   } catch (error) { return companyErrorResponse(error); }
 }
 
@@ -19,7 +19,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ comp
   if ("response" in auth) return auth.response;
   try {
     const { companyId } = await context.params;
-    const company = getCompanyStore().deleteForUser(auth.userId, companyId);
+    const company = await getCompanyStore().deleteForUser(auth.userId, companyId);
     return companyResponse({ deletedCompanyId: company.id });
   } catch (error) { return companyErrorResponse(error); }
 }

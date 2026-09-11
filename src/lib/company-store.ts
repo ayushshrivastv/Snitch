@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { AsyncDatabase, getDatabaseKey, getDatabaseLocation } from "./database";
 
 import type { CompanyAccount } from "./company-types";
+import { isShowcaseCompany, SHOWCASE_COMPANY } from "./showcase-company";
 import { buildWalletExportApprovalMessage, walletSignedExportApproval, type WalletExportApproval } from "./wallet-export-approval";
 
-export const PLAYGROUND_COMPANY_NAME = "Snitchpay.co";
+export const PLAYGROUND_COMPANY_NAME = SHOWCASE_COMPANY.name;
 
 export class CompanyError extends Error {
   constructor(
@@ -99,88 +98,33 @@ function companyMissing(): never {
 
 /** Stores public wallet identifiers and company metadata only; never signing material. */
 export class CompanyStore {
-  private readonly db: DatabaseSync;
+  private readonly db: AsyncDatabase;
 
   constructor(databasePath: string) {
-    this.db = new DatabaseSync(databasePath);
-    this.db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS companies (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        purpose TEXT NOT NULL DEFAULT 'company' CHECK(purpose IN ('company', 'playground')),
-        owner_user_id TEXT NOT NULL,
-        cfo_user_id TEXT,
-        request_id TEXT NOT NULL,
-        request_name TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        wallet_status TEXT NOT NULL CHECK(wallet_status IN ('pending', 'ready')),
-        wallet_address TEXT COLLATE NOCASE UNIQUE,
-        privy_wallet_id TEXT UNIQUE,
-        baseline_wallet_addresses TEXT NOT NULL,
-        UNIQUE(owner_user_id, request_id)
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS one_pending_company_per_owner
-        ON companies(owner_user_id) WHERE wallet_status = 'pending';
-      CREATE INDEX IF NOT EXISTS companies_by_owner ON companies(owner_user_id);
-    `);
-    // Serialize migration across connections. Existing records remain ordinary companies,
-    // including any company that happens to have the Playground display name.
-    this.transaction(() => {
-      const columns = this.db.prepare("PRAGMA table_info(companies)").all() as { name: string }[];
-      if (!columns.some((column) => column.name === "purpose")) {
-        this.db.exec("ALTER TABLE companies ADD COLUMN purpose TEXT NOT NULL DEFAULT 'company' CHECK(purpose IN ('company', 'playground'))");
-      }
-      if (!columns.some((column) => column.name === "cfo_user_id")) {
-        this.db.exec("ALTER TABLE companies ADD COLUMN cfo_user_id TEXT");
-        // Existing companies were created by their Privy wallet controller. Assign
-        // that person once; a deliberately cleared CFO is never restored on restart.
-        this.db.exec("UPDATE companies SET cfo_user_id = owner_user_id");
-      }
-      this.db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS one_playground_per_owner
-        ON companies(owner_user_id) WHERE purpose = 'playground'`);
-      this.db.exec(`CREATE TABLE IF NOT EXISTS wallet_export_approvals (
-        id TEXT PRIMARY KEY,
-        company_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        wallet_address TEXT NOT NULL,
-        privy_wallet_id TEXT,
-        message TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        consumed_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS wallet_export_approvals_expiry ON wallet_export_approvals(expires_at)`);
-    });
+    this.db = new AsyncDatabase(databasePath);
   }
+
+  ready() { return this.db.ready(); }
 
   close() { this.db.close(); }
 
-  private transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
-      const result = fn();
-      this.db.exec("COMMIT");
-      return result;
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+  private transaction<T>(fn: () => Promise<T>): Promise<T> {
+    // AsyncDatabase gives this callback its own write transaction and query context.
+    return this.db.transaction(fn);
   }
 
-  private hasTable(name: string): boolean {
-    return !!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+  private async hasTable(name: string): Promise<boolean> {
+    return !!await this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
   }
 
-  getForUser(userId: string, companyId: string): CompanyAccount | undefined {
-    const row = this.db.prepare("SELECT * FROM companies WHERE id = ? AND owner_user_id = ?")
+  async getForUser(userId: string, companyId: string): Promise<CompanyAccount | undefined> {
+    const row = await this.db.prepare("SELECT * FROM companies WHERE id = ? AND owner_user_id = ?")
       .get(companyId, userId) as CompanyRow | undefined;
     return row ? fromRow(row) : undefined;
   }
 
-  requireCfoExportCompany(userId: string, companyId: string): CompanyAccount {
-    const company = this.getForUser(userId, companyId) ?? companyMissing();
+  async requireCfoExportCompany(userId: string, companyId: string): Promise<CompanyAccount> {
+    const company = await this.getForUser(userId, companyId) ?? companyMissing();
     if (company.cfoUserId !== userId) {
       throw new CompanyError("Only the company's Chief Financial Officer can export this wallet.", 403, "CFO_REQUIRED");
     }
@@ -191,9 +135,9 @@ export class CompanyStore {
   }
 
   /** The caller must first verify this wallet against the CFO's current Privy account. */
-  createWalletExportApproval(userId: string, companyId: string, verifiedWallet: { address: string; id?: string }): WalletExportApproval {
-    return this.transaction(() => {
-      const company = this.requireCfoExportCompany(userId, companyId);
+  async createWalletExportApproval(userId: string, companyId: string, verifiedWallet: { address: string; id?: string }): Promise<WalletExportApproval> {
+    return this.transaction(async () => {
+      const company = await this.requireCfoExportCompany(userId, companyId);
       if (company.wallet.address!.toLowerCase() !== verifiedWallet.address.toLowerCase() ||
         (company.wallet.privyWalletId && company.wallet.privyWalletId !== verifiedWallet.id)) {
         throw new CompanyError("The company wallet changed. Request a new export approval.", 409, "EXPORT_WALLET_CHANGED");
@@ -206,9 +150,9 @@ export class CompanyStore {
         issuedAt: new Date(now).toISOString(), expiresAt, requestId: id,
       });
       // Approval records contain only public identifiers and the unsigned message.
-      this.db.prepare("DELETE FROM wallet_export_approvals WHERE expires_at < ?")
+      await this.db.prepare("DELETE FROM wallet_export_approvals WHERE expires_at < ?")
         .run(new Date(now - 24 * 60 * 60 * 1000).toISOString());
-      this.db.prepare(`INSERT INTO wallet_export_approvals
+      await this.db.prepare(`INSERT INTO wallet_export_approvals
         (id, company_id, user_id, wallet_address, privy_wallet_id, message, expires_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .run(id, companyId, userId, company.wallet.address!, company.wallet.privyWalletId ?? null, message, expiresAt);
@@ -216,9 +160,9 @@ export class CompanyStore {
     });
   }
 
-  private requireWalletExportApproval(userId: string, companyId: string, approvalId: string): WalletExportApprovalRow {
-    const company = this.requireCfoExportCompany(userId, companyId);
-    const approval = this.db.prepare("SELECT * FROM wallet_export_approvals WHERE id = ? AND company_id = ? AND user_id = ?")
+  private async requireWalletExportApproval(userId: string, companyId: string, approvalId: string): Promise<WalletExportApprovalRow> {
+    const company = await this.requireCfoExportCompany(userId, companyId);
+    const approval = await this.db.prepare("SELECT * FROM wallet_export_approvals WHERE id = ? AND company_id = ? AND user_id = ?")
       .get(approvalId, companyId, userId) as WalletExportApprovalRow | undefined;
     if (!approval) throw new CompanyError("Request a new wallet export approval.", 404, "EXPORT_APPROVAL_NOT_FOUND");
     if (approval.consumed_at) throw new CompanyError("This export approval has already been used.", 409, "EXPORT_APPROVAL_USED");
@@ -232,19 +176,19 @@ export class CompanyStore {
     return approval;
   }
 
-  getWalletExportApproval(userId: string, companyId: string, approvalId: string): WalletExportApproval {
-    return publicExportApproval(this.requireWalletExportApproval(userId, companyId, approvalId));
+  async getWalletExportApproval(userId: string, companyId: string, approvalId: string): Promise<WalletExportApproval> {
+    return publicExportApproval(await this.requireWalletExportApproval(userId, companyId, approvalId));
   }
 
   /** Atomically re-check authority, verify the signature, and consume a nonce once. */
-  consumeWalletExportApproval(userId: string, companyId: string, approvalId: string, signature: string): WalletExportApproval {
-    return this.transaction(() => {
-      const approval = this.requireWalletExportApproval(userId, companyId, approvalId);
+  async consumeWalletExportApproval(userId: string, companyId: string, approvalId: string, signature: string): Promise<WalletExportApproval> {
+    return this.transaction(async () => {
+      const approval = await this.requireWalletExportApproval(userId, companyId, approvalId);
       if (!walletSignedExportApproval(approval.message, signature, approval.wallet_address)) {
         throw new CompanyError("Sign the export approval with this company's CFO wallet.", 403, "EXPORT_SIGNATURE_INVALID");
       }
       const now = new Date().toISOString();
-      const result = this.db.prepare(`UPDATE wallet_export_approvals SET consumed_at = ?
+      const result = await this.db.prepare(`UPDATE wallet_export_approvals SET consumed_at = ?
         WHERE id = ? AND user_id = ? AND company_id = ? AND consumed_at IS NULL AND expires_at > ?
         AND EXISTS (SELECT 1 FROM companies WHERE id = ? AND owner_user_id = ? AND cfo_user_id = ?
           AND wallet_status = 'ready' AND wallet_address = ? COLLATE NOCASE AND privy_wallet_id IS ?)`)
@@ -256,19 +200,19 @@ export class CompanyStore {
     });
   }
 
-  listForUser(userId: string): CompanyAccount[] {
-    return (this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? ORDER BY created_at, id")
+  async listForUser(userId: string): Promise<CompanyAccount[]> {
+    return (await this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? ORDER BY created_at, id")
       .all(userId) as CompanyRow[]).map(fromRow);
   }
 
-  getPlaygroundForUser(userId: string): CompanyAccount | undefined {
-    const row = this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND purpose = 'playground'")
+  async getPlaygroundForUser(userId: string): Promise<CompanyAccount | undefined> {
+    const row = await this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND purpose = 'playground'")
       .get(userId) as CompanyRow | undefined;
     return row ? fromRow(row) : undefined;
   }
 
-  findRequest(userId: string, requestId: string, name: string): CompanyAccount | undefined {
-    const row = this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND request_id = ?")
+  async findRequest(userId: string, requestId: string, name: string): Promise<CompanyAccount | undefined> {
+    const row = await this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND request_id = ?")
       .get(userId, requestId) as CompanyRow | undefined;
     if (!row) return undefined;
     if (row.request_name !== name || row.purpose !== "company") {
@@ -277,99 +221,118 @@ export class CompanyStore {
     return fromRow(row);
   }
 
-  reserve(userId: string, name: string, requestId: string, baselineWalletAddresses: string[]) {
+  async reserve(userId: string, name: string, requestId: string, baselineWalletAddresses: string[]) {
     name = validateCompanyName(name);
     requestId = validateCompanyRequestId(requestId);
-    return this.transaction(() => {
-      const existing = this.findRequest(userId, requestId, name);
+    return this.transaction(async () => {
+      const existing = await this.findRequest(userId, requestId, name);
       if (existing) return { company: existing, created: false };
-      const pending = this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND wallet_status = 'pending'")
+      const pending = await this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND wallet_status = 'pending'")
         .get(userId) as CompanyRow | undefined;
       if (pending) {
         throw new CompanyError("Finish setting up your existing company wallet first.", 409, "COMPANY_SETUP_PENDING", fromRow(pending));
       }
       const id = randomUUID();
       const now = new Date().toISOString();
-      this.db.prepare(`INSERT INTO companies
+      await this.db.prepare(`INSERT INTO companies
         (id, name, owner_user_id, cfo_user_id, request_id, request_name, created_at, updated_at, wallet_status, baseline_wallet_addresses)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`)
         .run(id, name, userId, userId, requestId, name, now, now, JSON.stringify([...new Set(baselineWalletAddresses.map((address) => address.toLowerCase()))]));
-      return { company: this.getForUser(userId, id)!, created: true };
+      return { company: (await this.getForUser(userId, id))!, created: true };
     });
   }
 
-  /** One private Playground reservation per verified owner, never a shared global wallet. */
-  reservePlayground(userId: string, baselineWalletAddresses: string[]) {
-    return this.transaction(() => {
-      const existing = this.getPlaygroundForUser(userId);
-      if (existing) return { company: existing, created: false };
-      const pending = this.db.prepare("SELECT * FROM companies WHERE owner_user_id = ? AND wallet_status = 'pending'")
-        .get(userId) as CompanyRow | undefined;
-      if (pending) {
-        throw new CompanyError("Finish setting up your existing company wallet first.", 409, "COMPANY_SETUP_PENDING", fromRow(pending));
-      }
-      const id = randomUUID();
-      const now = new Date().toISOString();
-      this.db.prepare(`INSERT INTO companies
-        (id, name, purpose, owner_user_id, cfo_user_id, request_id, request_name, created_at, updated_at, wallet_status, baseline_wallet_addresses)
-        VALUES (?, ?, 'playground', ?, ?, ?, ?, ?, ?, 'pending', ?)`)
-        .run(id, PLAYGROUND_COMPANY_NAME, userId, userId, randomUUID(), PLAYGROUND_COMPANY_NAME, now, now,
-          JSON.stringify([...new Set(baselineWalletAddresses.map((address) => address.toLowerCase()))]));
-      return { company: this.getForUser(userId, id)!, created: true };
-    });
-  }
-
-  rename(userId: string, companyId: string, name: string): CompanyAccount {
-    name = validateCompanyName(name);
-    const company = this.getForUser(userId, companyId) ?? companyMissing();
-    if (company.purpose === "playground") {
-      if (name === PLAYGROUND_COMPANY_NAME) return company;
-      throw new CompanyError("The Playground account name is Snitchpay.co.", 409, "PLAYGROUND_NAME_FIXED");
+  /** Restore public metadata only after the service verifies the original CFO and wallet with Privy. */
+  async restoreVerifiedShowcase(userId: string, verifiedWallet: { address: string; id?: string }) {
+    if (userId !== SHOWCASE_COMPANY.cfoUserId) {
+      throw new CompanyError("Only Snitchpay.co's Chief Financial Officer can connect its treasury.", 403, "CFO_REQUIRED");
     }
-    const result = this.db.prepare("UPDATE companies SET name = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?")
-      .run(name, new Date().toISOString(), companyId, userId);
-    if (!result.changes) companyMissing();
-    return this.getForUser(userId, companyId)!;
+    if (verifiedWallet.address.toLowerCase() !== SHOWCASE_COMPANY.walletAddress.toLowerCase() ||
+      verifiedWallet.id !== SHOWCASE_COMPANY.privyWalletId) {
+      throw new CompanyError("The verified wallet does not match Snitchpay.co's treasury.", 403, "WALLET_NOT_OWNED");
+    }
+    return this.transaction(async () => {
+      const existingRow = await this.db.prepare("SELECT * FROM companies WHERE id = ?").get(SHOWCASE_COMPANY.id) as CompanyRow | undefined;
+      if (existingRow) {
+        const company = fromRow(existingRow);
+        // Never overwrite a changed controller, revoked CFO, or wallet association.
+        if (!isShowcaseCompany(company)) {
+          throw new CompanyError("Snitchpay.co's treasury configuration needs review.", 409, "SHOWCASE_CONFIGURATION_CONFLICT");
+        }
+        return { company, created: false };
+      }
+      if (await this.getPlaygroundForUser(userId) || await this.isWalletBound(verifiedWallet.address) ||
+        await this.db.prepare("SELECT id FROM companies WHERE privy_wallet_id = ?").get(SHOWCASE_COMPANY.privyWalletId)) {
+        throw new CompanyError("Snitchpay.co's treasury is already associated with another account record.", 409, "SHOWCASE_CONFIGURATION_CONFLICT");
+      }
+      const now = new Date().toISOString();
+      await this.db.prepare(`INSERT INTO companies
+        (id, name, purpose, owner_user_id, cfo_user_id, request_id, request_name, created_at, updated_at,
+          wallet_status, wallet_address, privy_wallet_id, baseline_wallet_addresses)
+        VALUES (?, ?, 'playground', ?, ?, ?, ?, ?, ?, 'ready', ?, ?, '[]')`)
+        .run(SHOWCASE_COMPANY.id, PLAYGROUND_COMPANY_NAME, userId, userId, SHOWCASE_COMPANY.id,
+          PLAYGROUND_COMPANY_NAME, SHOWCASE_COMPANY.createdAt, now, SHOWCASE_COMPANY.walletAddress, SHOWCASE_COMPANY.privyWalletId);
+      return { company: (await this.getForUser(userId, SHOWCASE_COMPANY.id))!, created: true };
+    });
   }
 
-  deleteForUser(userId: string, companyId: string): CompanyAccount {
-    return this.transaction(() => {
-      const company = this.getForUser(userId, companyId) ?? companyMissing();
+  async rename(userId: string, companyId: string, name: string): Promise<CompanyAccount> {
+    name = validateCompanyName(name);
+    return this.transaction(async () => {
+      const company = await this.getForUser(userId, companyId) ?? companyMissing();
+      if (company.purpose === "playground") {
+        if (name === PLAYGROUND_COMPANY_NAME) return company;
+        throw new CompanyError("The Playground account name is Snitchpay.co.", 409, "PLAYGROUND_NAME_FIXED");
+      }
+      const result = await this.db.prepare("UPDATE companies SET name = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?")
+        .run(name, new Date().toISOString(), companyId, userId);
+      if (!result.changes) companyMissing();
+      return (await this.getForUser(userId, companyId))!;
+    });
+  }
+
+  async deleteForUser(userId: string, companyId: string): Promise<CompanyAccount> {
+    return this.transaction(async () => {
+      const company = await this.getForUser(userId, companyId) ?? companyMissing();
       if (company.purpose === "playground") {
         throw new CompanyError("Snitchpay.co cannot be deleted.", 409, "PLAYGROUND_DELETE_FORBIDDEN");
       }
 
       // Company records can be created before the invoice and payout stores have
       // initialized their tables, so clean up only the dependent tables present.
-      if (this.hasTable("invoice_payments") && this.hasTable("invoices")) {
-        this.db.prepare(`DELETE FROM invoice_payments
+      if (await this.hasTable("invoice_payments") && await this.hasTable("invoices")) {
+        await this.db.prepare(`DELETE FROM invoice_payments
           WHERE invoice_id IN (SELECT id FROM invoices WHERE company_id = ?)`)
           .run(companyId);
       }
-      if (this.hasTable("invoices")) {
-        this.db.prepare("DELETE FROM invoices WHERE company_id = ?").run(companyId);
+      if (await this.hasTable("invoices")) {
+        await this.db.prepare("DELETE FROM invoices WHERE company_id = ?").run(companyId);
       }
-      if (this.hasTable("company_payouts")) {
-        this.db.prepare("DELETE FROM company_payouts WHERE company_id = ? AND owner_user_id = ?")
+      if (await this.hasTable("company_payouts")) {
+        await this.db.prepare("DELETE FROM company_payouts WHERE company_id = ? AND owner_user_id = ?")
           .run(companyId, userId);
       }
-      this.db.prepare("DELETE FROM wallet_export_approvals WHERE company_id = ?").run(companyId);
+      await this.db.prepare("DELETE FROM wallet_export_approvals WHERE company_id = ?").run(companyId);
 
-      const result = this.db.prepare("DELETE FROM companies WHERE id = ? AND owner_user_id = ? AND purpose = 'company'")
+      const result = await this.db.prepare("DELETE FROM companies WHERE id = ? AND owner_user_id = ? AND purpose = 'company'")
         .run(companyId, userId);
       if (result.changes !== 1) companyMissing();
       return company;
     });
   }
 
-  isWalletBound(address: string): boolean {
-    return !!this.db.prepare("SELECT id FROM companies WHERE wallet_address = ? COLLATE NOCASE").get(address);
+  async isWalletBound(address: string): Promise<boolean> {
+    return !!await this.db.prepare("SELECT id FROM companies WHERE wallet_address = ? COLLATE NOCASE").get(address);
   }
 
   /** Call only after the service has verified ownership with Privy's server API. */
-  bindVerifiedWallet(userId: string, companyId: string, wallet: { address: string; id?: string }): CompanyAccount {
-    return this.transaction(() => {
-      const company = this.getForUser(userId, companyId) ?? companyMissing();
+  async bindVerifiedWallet(userId: string, companyId: string, wallet: { address: string; id?: string }): Promise<CompanyAccount> {
+    return this.transaction(async () => {
+      const company = await this.getForUser(userId, companyId) ?? companyMissing();
+      if (companyId !== SHOWCASE_COMPANY.id &&
+        (wallet.address.toLowerCase() === SHOWCASE_COMPANY.walletAddress.toLowerCase() || wallet.id === SHOWCASE_COMPANY.privyWalletId)) {
+        throw new CompanyError("This wallet belongs to Snitchpay.co's existing treasury.", 409, "WALLET_ALREADY_LINKED");
+      }
       if (company.wallet.status === "ready") {
         if (company.wallet.address?.toLowerCase() === wallet.address.toLowerCase()) return company;
         throw new CompanyError("This company already has a treasury wallet.", 409, "WALLET_ALREADY_LINKED");
@@ -377,41 +340,31 @@ export class CompanyStore {
       if (company.baselineWalletAddresses.includes(wallet.address.toLowerCase())) {
         throw new CompanyError("Create a new wallet for this company.", 409, "WALLET_PREDATES_COMPANY");
       }
-      if (this.isWalletBound(wallet.address) || (wallet.id && this.db.prepare("SELECT id FROM companies WHERE privy_wallet_id = ?").get(wallet.id))) {
+      if (await this.isWalletBound(wallet.address) || (wallet.id && await this.db.prepare("SELECT id FROM companies WHERE privy_wallet_id = ?").get(wallet.id))) {
         throw new CompanyError("This wallet is already linked to a company.", 409, "WALLET_ALREADY_LINKED");
       }
-      this.db.prepare("UPDATE companies SET wallet_status = 'ready', wallet_address = ?, privy_wallet_id = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?")
+      await this.db.prepare("UPDATE companies SET wallet_status = 'ready', wallet_address = ?, privy_wallet_id = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?")
         .run(wallet.address, wallet.id ?? null, new Date().toISOString(), companyId, userId);
-      return this.getForUser(userId, companyId)!;
+      return (await this.getForUser(userId, companyId))!;
     });
   }
 }
 
-function dataDirectory(): string {
-  if (typeof window !== "undefined") throw new Error("Company storage is server-only.");
-  const configured = process.env.SNITCH_DATA_DIR?.trim();
-  if (process.env.NODE_ENV === "production" && (!configured || !isAbsolute(configured) || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY)) {
-    throw new CompanyError("Persistent company storage is not configured.", 503, "COMPANY_STORAGE_UNAVAILABLE");
-  }
-  return configured ? resolve(configured) : join(process.cwd(), ".data");
-}
-
 const globalStores = globalThis as typeof globalThis & { snitchCompanyStores?: Map<string, CompanyStore> };
 
+// Retained for consumers sharing the same local or managed database location.
 export function getCompanyDatabasePath(): string {
-  const directory = dataDirectory();
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
-  return join(directory, "snitch.sqlite");
+  return getDatabaseLocation();
 }
 
 export function getCompanyStore(): CompanyStore {
-  const directory = dataDirectory();
+  const location = getDatabaseLocation();
+  const key = getDatabaseKey();
   globalStores.snitchCompanyStores ??= new Map();
-  let store = globalStores.snitchCompanyStores.get(directory);
+  let store = globalStores.snitchCompanyStores.get(key);
   if (!store) {
-    mkdirSync(directory, { recursive: true, mode: 0o700 });
-    store = new CompanyStore(join(directory, "snitch.sqlite"));
-    globalStores.snitchCompanyStores.set(directory, store);
+    store = new CompanyStore(location);
+    globalStores.snitchCompanyStores.set(key, store);
   }
   return store;
 }

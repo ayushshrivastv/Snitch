@@ -40,7 +40,7 @@ export function ProfileWorkspace({ userId, initialProfile, getAccessToken, logou
 
   return <WorkspaceSessionProvider value={{ user: { id: userId, name: profile.name || "Your profile", email: profile.email, initials: profile.initials }, getAccessToken, logout }}>
     <CompanyWalletProvider><div className="h-screen" aria-busy={!profileReady}>{children}</div></CompanyWalletProvider>
-    {profileReady && profile.needsName ? <ProfileNameDialog onSave={saveName} onSignOut={logout} /> : null}
+    {profileReady && !error && profile.needsName ? <ProfileNameDialog onSave={saveName} onSignOut={logout} /> : null}
     {error ? <div className="fixed right-4 top-4 z-[80] max-w-sm rounded-xl border border-border bg-background p-4 shadow-lg" role="alert">
       <p className="text-sm font-medium">We couldn’t finish loading your profile.</p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">Your workspace is open. Try syncing your profile again.</p>

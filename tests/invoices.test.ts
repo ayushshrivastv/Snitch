@@ -45,7 +45,7 @@ before(async () => {
   // This legacy address must never receive a company invoice's payment.
   process.env.NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS = otherRecipient;
   companies = await installCompanyFixture();
-  companyId = companies.create(fixtureUserId, "Verified company", treasury).id;
+  companyId = (await companies.create(fixtureUserId, "Verified company", treasury)).id;
   server = createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk.toString();
@@ -80,7 +80,7 @@ before(async () => {
 
 after(async () => {
   auth?.restore();
-  companies?.restore();
+  (await companies?.restore());
   if (server) {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
@@ -105,7 +105,7 @@ async function createInvoice(overrides: Record<string, unknown> = {}) {
   const response = await invoiceRoute.POST(post("/api/invoices", { ...validBody, companyId, ...overrides }));
   assert.equal(response.status, 201);
   const result = await response.json();
-  const invoice = invoiceStore.getInvoice(result.invoiceId);
+  const invoice = (await invoiceStore.getInvoice(result.invoiceId));
   assert.ok(invoice);
   return invoice;
 }
@@ -180,20 +180,20 @@ test("invoice creation requires a company and never falls back to the global tre
   assert.equal(unknown.status, 404);
 
   const pendingOwnerId = "did:privy:pending-owner";
-  const pending = companies.create(pendingOwnerId, "Pending company");
+  const pending = (await companies.create(pendingOwnerId, "Pending company"));
   const response = await invoiceRoute.POST(post("/api/invoices", {
     ...validBody, companyId: pending.id, treasury: treasury, wallet: { status: "ready", address: treasury },
   }, pendingOwnerId));
   assert.equal(response.status, 409);
 
-  assert.throws(() => invoiceStore.createInvoice({
+  (await assert.rejects(async () => (await invoiceStore.createInvoice({
     amount, companyId, ownerId: fixtureUserId, customerName: "Customer", title: "Invoice", memo: "",
     dueDate: "2028-02-29", paymentTerms: "Due on receipt", treasuryAccount: "Verified company",
-  }), /company treasury wallet is required/i);
+  })), /company treasury wallet is required/i));
 });
 
 test("a forged owner cannot create invoices for another user's company", async () => {
-  const foreign = companies.create("did:privy:another-owner", "Other company", "0x4444444444444444444444444444444444444444");
+  const foreign = (await companies.create("did:privy:another-owner", "Other company", "0x4444444444444444444444444444444444444444"));
   const response = await invoiceRoute.POST(post("/api/invoices", {
     ...validBody, companyId: foreign.id, ownerId: foreign.ownerUserId,
     treasury: foreign.wallet.address, treasuryAccount: foreign.name,
@@ -214,7 +214,7 @@ test("the invoice response exposes the verified company's recipient and identity
 
 test("separate companies owned by one user keep distinct invoice recipients", async () => {
   const secondAddress = "0x5555555555555555555555555555555555555555";
-  const secondCompany = companies.create(fixtureUserId, "Second company", secondAddress);
+  const secondCompany = (await companies.create(fixtureUserId, "Second company", secondAddress));
   const first = await createInvoice();
   const second = await createInvoice({ companyId: secondCompany.id });
   assert.equal(first.treasury, treasury);
@@ -330,9 +330,9 @@ test("payable invoices, confirmations, and transaction uniqueness survive a full
   assert.equal((await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }))).status, 200);
   const confirmed = (await status(invoice.id)).payment;
   closeInvoiceStore();
-  assert.deepEqual(invoiceStore.getInvoice(invoice.id), invoice);
-  assert.deepEqual(invoiceStore.getInvoiceForOwner(invoice.id, fixtureUserId), invoice);
-  assert.equal(invoiceStore.getInvoiceForOwner(invoice.id, "did:privy:foreign-after-restart"), undefined);
+  assert.deepEqual((await invoiceStore.getInvoice(invoice.id)), invoice);
+  assert.deepEqual((await invoiceStore.getInvoiceForOwner(invoice.id, fixtureUserId)), invoice);
+  assert.equal((await invoiceStore.getInvoiceForOwner(invoice.id, "did:privy:foreign-after-restart")), undefined);
   assert.deepEqual((await status(invoice.id)).payment, confirmed);
   const methodsBefore = rpcMethods.length;
   const retry = await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId: invoice.id, transactionHash }));
@@ -343,21 +343,21 @@ test("payable invoices, confirmations, and transaction uniqueness survive a full
   const anotherInvoice = await createInvoice();
   const secondConnection = new InvoiceStore(getCompanyDatabasePath());
   try {
-    assert.deepEqual(secondConnection.getInvoice(invoice.id), invoice);
-    assert.deepEqual(secondConnection.savePayment(confirmed), confirmed);
-    assert.throws(() => secondConnection.savePayment({ ...confirmed, invoiceId: anotherInvoice.id }), PaymentConfirmationConflictError);
-    assert.throws(() => secondConnection.savePayment({ ...confirmed, transactionHash: `0x${"ef".repeat(32)}` }), PaymentConfirmationConflictError);
+    assert.deepEqual((await secondConnection.getInvoice(invoice.id)), invoice);
+    assert.deepEqual((await secondConnection.savePayment(confirmed)), confirmed);
+    (await assert.rejects(async () => (await secondConnection.savePayment({ ...confirmed, invoiceId: anotherInvoice.id })), PaymentConfirmationConflictError));
+    (await assert.rejects(async () => (await secondConnection.savePayment({ ...confirmed, transactionHash: `0x${"ef".repeat(32)}` })), PaymentConfirmationConflictError));
   } finally { secondConnection.close(); }
 });
 
 test("company invoice hydration requires the verified owner and restores exact record and payment fields", async () => {
   const owner = "did:privy:invoice-hydration";
   const hydratedTreasury = "0x6666666666666666666666666666666666666666";
-  const account = companies.create(owner, "Hydrated company", hydratedTreasury);
+  const account = (await companies.create(owner, "Hydrated company", hydratedTreasury));
   const body = { ...validBody, companyId: account.id };
   const result = await invoiceRoute.POST(post("/api/invoices", body, owner));
   const { invoiceId } = await result.json();
-  const invoice = invoiceStore.getInvoice(invoiceId)!;
+  const invoice = (await invoiceStore.getInvoice(invoiceId))!;
   const transactionHash = registerTransaction(invoiceId, { to: hydratedTreasury });
   assert.equal((await confirmationRoute.POST(post("/api/payments/confirm", { invoiceId, transactionHash }))).status, 200);
   closeInvoiceStore();
@@ -376,7 +376,7 @@ test("company invoice hydration requires the verified owner and restores exact r
   assert.equal(records[0].amount, amount);
   assert.equal(records[0].treasury, hydratedTreasury);
   assert.equal(records[0].companyId, account.id);
-  const unrelated = companies.create(owner, "Other company", otherRecipient);
+  const unrelated = (await companies.create(owner, "Other company", otherRecipient));
   const empty = await listRoute.GET(listRequest(owner), { params: Promise.resolve({ companyId: unrelated.id }) });
   assert.deepEqual(await empty.json(), { invoices: [] });
 });

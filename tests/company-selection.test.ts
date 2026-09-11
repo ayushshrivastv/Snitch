@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PLAYGROUND_ACCOUNT_ID, resolveWalletCompany } from "../src/lib/company-selection";
 import type { CompanyAccount } from "../src/lib/company-types";
+import { SHOWCASE_COMPANY } from "../src/lib/showcase-company";
 
 function company(overrides: Partial<CompanyAccount> = {}): CompanyAccount {
   return {
@@ -18,23 +19,27 @@ function company(overrides: Partial<CompanyAccount> = {}): CompanyAccount {
   };
 }
 
-test("the Playground display alias selects only the reserved Playground purpose", () => {
+function showcase(overrides: Partial<CompanyAccount> = {}) {
+  return company({ id: SHOWCASE_COMPANY.id, purpose: "playground", ownerUserId: SHOWCASE_COMPANY.cfoUserId,
+    cfoUserId: SHOWCASE_COMPANY.cfoUserId, wallet: { status: "ready", address: SHOWCASE_COMPANY.walletAddress,
+      privyWalletId: SHOWCASE_COMPANY.privyWalletId }, ...overrides });
+}
+
+test("the shared display alias selects the original treasury regardless of company order", () => {
   const namedLikePlayground = company();
-  const playground = company({
-    id: "44ef751d-797b-4a27-8340-ab2291fbab0d",
-    purpose: "playground",
-    name: "Snitchpay.co",
-    wallet: { status: "ready", address: "0x0000000000000000000000000000000000000002" },
-  });
-  assert.equal(resolveWalletCompany([namedLikePlayground, playground], PLAYGROUND_ACCOUNT_ID), playground);
-  assert.equal(resolveWalletCompany([playground, namedLikePlayground], PLAYGROUND_ACCOUNT_ID), playground);
+  const canonical = showcase();
+  const previousPrivatePlayground = company({ purpose: "playground" });
+  assert.equal(resolveWalletCompany([previousPrivatePlayground, namedLikePlayground, canonical], PLAYGROUND_ACCOUNT_ID), canonical);
+  assert.equal(resolveWalletCompany([canonical, namedLikePlayground, previousPrivatePlayground], PLAYGROUND_ACCOUNT_ID), canonical);
 });
 
-test("missing Playground authority cannot fall back to a similarly named or first company wallet", () => {
-  const namedLikePlayground = company();
-  const anotherCompany = company({ id: "d4a2cc97-61e0-4757-98df-cb86a95a0869", name: "Other company" });
-  assert.equal(resolveWalletCompany([namedLikePlayground, anotherCompany], PLAYGROUND_ACCOUNT_ID), undefined);
-  assert.equal(resolveWalletCompany([anotherCompany, namedLikePlayground], PLAYGROUND_ACCOUNT_ID), undefined);
+test("shared alias rejects lookalikes, changed controllers, revoked CFOs, and substituted wallets", () => {
+  const invalid = [company(), company({ purpose: "playground" }), showcase({ ownerUserId: "another" }),
+    showcase({ cfoUserId: null }), showcase({ cfoUserId: "another" }),
+    showcase({ wallet: { status: "ready", address: SHOWCASE_COMPANY.walletAddress, privyWalletId: "another" } }),
+    showcase({ wallet: { status: "ready", address: "0x0000000000000000000000000000000000000001", privyWalletId: SHOWCASE_COMPANY.privyWalletId } }),
+    showcase({ wallet: { status: "pending" } })];
+  for (const item of invalid) assert.equal(resolveWalletCompany([item], PLAYGROUND_ACCOUNT_ID), undefined);
   assert.equal(resolveWalletCompany([], PLAYGROUND_ACCOUNT_ID), undefined);
 });
 
@@ -58,6 +63,6 @@ test("unknown company IDs and display names never obtain a wallet fallback", () 
 
 test("a pending selected wallet stays selected instead of silently using another ready wallet", () => {
   const readyCompany = company();
-  const pendingPlayground = company({ id: "44ef751d-797b-4a27-8340-ab2291fbab0d", purpose: "playground", wallet: { status: "pending" } });
-  assert.equal(resolveWalletCompany([readyCompany, pendingPlayground], PLAYGROUND_ACCOUNT_ID), pendingPlayground);
+  const pendingCompany = company({ id: "44ef751d-797b-4a27-8340-ab2291fbab0d", wallet: { status: "pending" } });
+  assert.equal(resolveWalletCompany([readyCompany, pendingCompany], pendingCompany.id), pendingCompany);
 });

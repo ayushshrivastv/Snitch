@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ compan
   if ("response" in auth) return auth.response;
   try {
     const { companyId } = await context.params;
-    const company = getCompanyForUser(auth.userId, companyId);
+    const company = await getCompanyForUser(auth.userId, companyId);
     if (!company) throw new CompanyError("Company not found.", 404, "COMPANY_NOT_FOUND");
     if (company.wallet.status !== "ready" || !company.wallet.address) throw new CompanyError("Finish setting up your company wallet first.", 409, "COMPANY_WALLET_PENDING");
     const body = await companyRequestBody(request);
@@ -23,7 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ compan
     try { parseEthAmount(body.amount); } catch { throw new CompanyError("Enter a positive ETH amount with at most 18 decimal places.", 400, "INVALID_PAYMENT_AMOUNT"); }
     try {
       const confirmation = await verifyCompanyPayment({ from: company.wallet.address, to, amount: body.amount, transactionHash: body.transactionHash, provider: createCompanyPaymentReader(AbortSignal.timeout(8000)), requireTransaction: true });
-      getCompanyPayoutStore().saveVerified(auth.userId, companyId, { from: company.wallet.address, to, amount: body.amount, confirmation });
+      await getCompanyPayoutStore().saveVerified(auth.userId, companyId, { from: company.wallet.address, to, amount: body.amount, confirmation });
       return companyResponse(confirmation);
     } catch (error) {
       if (error instanceof CompanyPaymentVerificationError && error.status === 409) return companyResponse({ status: "Incomplete", transactionHash: body.transactionHash.toLowerCase(), explorerUrl: getEthereumExplorerUrl(body.transactionHash) });

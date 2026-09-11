@@ -90,10 +90,10 @@ export default async function PublicInvoicePage({
   const { account, invoiceId } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
   const decodedInvoiceId = decodeURIComponent(invoiceId);
-  const storedInvoice = getInvoice(decodedInvoiceId);
+  const storedInvoice = await getInvoice(decodedInvoiceId);
   const merchantName = storedInvoice?.treasuryAccount || titleFromSlug(account);
   const invoice = storedInvoice ?? previewInvoice(resolvedSearchParams);
-  const confirmedPayment = storedInvoice ? getConfirmedPayment(decodedInvoiceId) : undefined;
+  const confirmedPayment = storedInvoice ? await getConfirmedPayment(decodedInvoiceId) : undefined;
   const isCompleted = confirmedPayment?.status === "Succeeded";
   const expired = Boolean(storedInvoice && !isCompleted && isExpired(storedInvoice.dueDate));
   const paymentStatusLabel = isCompleted

@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
     // Always resolve the company from the verified identity. Client-supplied
     // account names and recipient addresses do not control where funds go.
-    const company = getCompanyForUser(auth.userId, companyId);
+    const company = await getCompanyForUser(auth.userId, companyId);
     if (!company) {
       return NextResponse.json({ error: "Company account not found." }, { status: 404 });
     }
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const invoice = createInvoice({
+    const invoice = await createInvoice({
       amount,
       customerName: text(body.customerName, "Unnamed customer"),
       title: text(body.invoiceTitle, "ETH invoice"),
