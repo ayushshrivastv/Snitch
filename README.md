@@ -15,7 +15,7 @@ The current implementation executes **native ETH transfers on Ethereum Sepolia**
 
 ## Local setup
 
-Use **Node.js 22.14 or newer** and npm. The storage layer requires Node's built-in `node:sqlite` module.
+Use **Node.js 22.x, version 22.14 or newer**, and npm. The storage layer requires Node's built-in `node:sqlite` module.
 
 ```bash
 npm ci
@@ -89,6 +89,12 @@ SNITCH_DATA_DIR="$PWD/.data" npm run start
 ```
 
 The current deployment model is one Node service with persistent SQLite storage. Ephemeral serverless and multi-region storage are unsupported. Use HTTPS, exact Privy allowed origins, a persistent volume, and database backups for a hosted test environment. Compliance controls, API-key issuance, multi-user wallet policies, and stablecoin settlement remain outside the implemented backend.
+
+### Vercel builds
+
+`vercel.json` selects the Next.js framework, installs the locked dependencies including build tooling, and runs `npm run build`. This preserves the project's `next build --webpack` command and its Privy connector alias. Running bare `next build` selects Turbopack and fails against the Webpack configuration. The Node engine range keeps deployments on supported Node 22 releases.
+
+A successful Vercel build can serve the public landing page and showcase, but it does not make the current SQLite backend compatible with Vercel functions. Authenticated company operations, wallet bindings, invoices, payouts, balances, and export approval require the persistent backend. Keep the full application on a Node web service with a persistent disk, or migrate these stores to a managed database before using them on Vercel. Setting `SNITCH_DATA_DIR` to `/tmp` does not provide durable storage.
 
 ## Further documentation
 
