@@ -1,6 +1,6 @@
 <p align="center">
   <strong style="font-size: 18px;">Snitch:</strong>
-  <span style="font-size: 18px;">The Operating layer for Onchain Payments.</span>
+  <span style="font-size: 18px;">The Operational Layer for Shared Treasuries</span>
 </p>
 
 <p align="center">
