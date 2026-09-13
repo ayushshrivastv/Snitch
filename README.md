@@ -1,12 +1,11 @@
 <p align="center">
   <strong style="font-size: 18px;">Snitch:</strong>
-  <span style="font-size: 18px;">The operating layer for onchain payments.</span>
+  <span style="font-size: 18px;">The Operating layer for Onchain Payments.</span>
 </p>
 
 <p align="center">
-  <!-- Add the primary Snitch workspace screenshot here later.
-  <img width="852" height="621" alt="Snitch company workspace" src="YOUR_SCREENSHOT_URL" />
-  -->
+  <img width="852" height="621" alt="Screenshot 2026-09-13 at 11 46 11" src="https://github.com/user-attachments/assets/d12533df-cffb-4466-950d-cd656f3760b5" />
+
 </p>
 
 <p align="center">
@@ -41,21 +40,15 @@ Privy also handles the actions that require wallet authority. Company payouts op
 Key export is protected by an additional application-level check. Snitch issues a five-minute, single-use message containing the company, user, wallet, purpose, nonce, and expiry. The designated wallet controller signs that message with the selected company wallet. Only after the server verifies and consumes the challenge does the client open Privy's protected export interface. The private key and recovery phrase never pass through Snitch.
 
 <p align="center">
-  <!-- Add the Privy authentication screenshot here later.
-  <img width="852" height="621" alt="Privy authentication in Snitch" src="YOUR_SCREENSHOT_URL" />
-  -->
+ <img width="852" height="621" alt="Screenshot 2026-09-13 at 11 49 26" src="https://github.com/user-attachments/assets/f0ce3dd9-7c18-4c5c-b687-b59cd9e752dc" />
 </p>
 
 <p align="center">
-  <!-- Add the Privy transaction approval screenshot here later.
-  <img width="852" height="621" alt="Privy payout approval in Snitch" src="YOUR_SCREENSHOT_URL" />
-  -->
+<img width="852" height="621" alt="Screenshot 2026-09-13 at 11 50 29" src="https://github.com/user-attachments/assets/5b5ccbd8-2092-43ab-967f-285d24eeebab" />
 </p>
 
 <p align="center">
-  <!-- Add the protected wallet export screenshot here later.
-  <img width="852" height="621" alt="Protected Privy wallet export" src="YOUR_SCREENSHOT_URL" />
-  -->
+  <img width="852" height="621" alt="Screenshot 2026-09-13 at 11 49 49" src="https://github.com/user-attachments/assets/61615e47-5510-46ca-9512-c8936fb62bbe" />
 </p>
 
 ## Credits
