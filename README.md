@@ -1,113 +1,202 @@
-# Snitch
+<p align="center">
+  <strong style="font-size: 18px;">Snitch:</strong>
+  <span style="font-size: 18px;">The operating layer for onchain payments.</span>
+</p>
 
-A company workspace for onchain payments, treasury balances, and financial records. Snitch brings invoice requests, customer checkout, and company payouts together around a dedicated Privy wallet.
+<p align="center">
+  <!-- Add the primary Snitch workspace screenshot here later.
+  <img width="852" height="621" alt="Snitch company workspace" src="YOUR_SCREENSHOT_URL" />
+  -->
+</p>
 
-The current implementation executes **native ETH transfers on Ethereum Sepolia** (`11155111`). The broader stablecoin, payroll, and team workflows on the landing page describe the product direction; stablecoin transfers, mainnet execution, and shared signing are not implemented.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/Privy-Wallet%20Infrastructure-6E5AE6" alt="Privy" />
+  <img src="https://img.shields.io/badge/Ethereum-Sepolia-627EEA?logo=ethereum&logoColor=white" alt="Ethereum Sepolia" />
+</p>
 
-## What works
+Snitch is built around one simple idea: company crypto should work like company finance, with clear accounts, controlled access, and a reliable record of every payment.
 
-- Privy email sign-in opens directly from the landing page. A missing profile name is collected once and displayed throughout the workspace.
-- Creating a company provisions a separate Privy embedded wallet and saves its verified public address. Signing in alone does not create a wallet.
-- Invoices use the selected company's receiving wallet. Hosted checkout accepts a customer wallet transfer, then verifies its network, recipient, amount, and invoice reference before recording payment.
-- Company payouts request the selected wallet's signature through Privy. The server verifies the broadcast transfer and persists its status without resending it.
-- Wallets show RPC balances, recorded activity, charts, and export settings. Snitch's export flow requires the assigned CFO to verify a single-use signature before opening Privy's protected export interface.
-- The public Snitchpay.co showcase retains historical Ethereum Sepolia and Base Sepolia transfers alongside illustrative records. Every visitor sees the same existing Snitchpay.co treasury address and its live Sepolia balance. Its designated CFO controls signing and key export; creating an ordinary company creates a separate company wallet.
+Moving money onchain is straightforward for one person with one wallet. It becomes much harder when an entire company needs to operate together. Funds sit across personal wallets, payment context lives in spreadsheets and email, and finance teams have to match transaction hashes with invoices by hand. One person often controls the keys while everyone else waits for an update.
 
-## Local setup
+Snitch turns that fragmented process into a shared company workspace. A company can create separate accounts for departments, projects, regions, or payment flows. Each account has its own treasury, transaction history, and Privy-secured wallet. Teams can create invoices, email payment links, receive customer payments, send vendor or salary payouts, monitor treasury activity, and export financial records as CSV.
 
-Use **Node.js 22.x, version 22.14 or newer**, and npm. The asynchronous libSQL storage layer uses a local SQLite file in development and Turso in Vercel production.
+The working prototype completes these flows with native test ETH on Ethereum Sepolia. Balances come from the network, wallet approvals happen through Privy, and Snitch verifies transfers before recording them as successful. The broader product direction includes stablecoin settlement, global payroll, and expanded team permissions.
+
+Try Snitch at https://snitchpay.vercel.app
+
+<!-- Add the public demo video URL here before submission. -->
+
+ETHGlobal ETHOnline 2026 × Privy 🤍
+
+## Privy wallet infrastructure
+
+Privy provides the authentication and wallet layer at the centre of Snitch. Team members sign in through Privy, while protected Snitch API routes independently verify their Privy access tokens before returning company or payment data.
+
+We deliberately separated authentication from treasury creation. Signing in does not generate a wallet. When a user creates a company account, Snitch asks Privy to create a dedicated embedded Ethereum wallet, verifies that it belongs to the authenticated identity, and binds its public address to that account. This gives every account an independent treasury without creating a Snitch-controlled signer.
+
+Privy also handles the actions that require wallet authority. Company payouts open Privy's approval interface for the exact wallet, destination, amount, and Sepolia network. Invoice recipients connect their own Ethereum wallet through Privy and approve the payment from the hosted checkout page. Snitch receives the public transaction hash and verifies the resulting transfer independently.
+
+Key export is protected by an additional application-level check. Snitch issues a five-minute, single-use message containing the company, user, wallet, purpose, nonce, and expiry. The designated wallet controller signs that message with the selected company wallet. Only after the server verifies and consumes the challenge does the client open Privy's protected export interface. The private key and recovery phrase never pass through Snitch.
+
+<p align="center">
+  <!-- Add the Privy authentication screenshot here later.
+  <img width="852" height="621" alt="Privy authentication in Snitch" src="YOUR_SCREENSHOT_URL" />
+  -->
+</p>
+
+<p align="center">
+  <!-- Add the Privy transaction approval screenshot here later.
+  <img width="852" height="621" alt="Privy payout approval in Snitch" src="YOUR_SCREENSHOT_URL" />
+  -->
+</p>
+
+<p align="center">
+  <!-- Add the protected wallet export screenshot here later.
+  <img width="852" height="621" alt="Protected Privy wallet export" src="YOUR_SCREENSHOT_URL" />
+  -->
+</p>
+
+## Credits
+
+Snitch was designed and built by [Ayush Srivastava](https://github.com/ayushshrivastv) for ETHOnline 2026. Privy is the partner technology used for authentication, embedded company wallets, external wallet connections, transaction approval, message signing, and protected key export. Repository import chronology and provenance are documented in the [development history](docs/development-history.md).
+
+## How Snitch Works
+
+```mermaid
+flowchart LR
+    TEAM["Team member<br/>Privy authentication"] --> ACCOUNT["Snitch company account<br/>independent treasury"]
+    ACCOUNT --> WALLET["Dedicated Privy wallet<br/>verified company binding"]
+
+    ACCOUNT --> INVOICE["Invoice<br/>email and hosted checkout"]
+    ACCOUNT --> PAYOUT["Payout<br/>Privy approval"]
+
+    CUSTOMER["Customer<br/>Privy-connected wallet"] --> INVOICE
+    INVOICE --> SEPOLIA["Ethereum Sepolia<br/>native ETH settlement"]
+    WALLET --> PAYOUT
+    PAYOUT --> SEPOLIA
+
+    SEPOLIA --> VERIFY["Server verification<br/>chain, wallets, amount, receipt"]
+    VERIFY --> STORE["Turso / libSQL<br/>companies and payment records"]
+    STORE --> WORKSPACE["Snitch workspace<br/>treasury, transactions, invoices, payouts"]
+```
+
+Every protected flow begins with a verified Privy identity. Creating an account reserves a company record, captures a baseline of the user's existing wallets, creates one new eligible Privy wallet, and binds it only after server-side ownership checks pass. Request IDs make interrupted setup idempotent, so reopening the flow does not silently create duplicate accounts or wallets.
+
+Invoices always use the selected company's stored receiving address. Snitch saves the amount, customer, purpose, due date, and invoice reference before generating a public checkout link. The recipient does not need a Snitch account: they open the link, connect an Ethereum wallet through Privy, and approve the exact payment.
+
+Payouts begin from the company workspace. Snitch resolves the selected account to its bound Privy wallet, converts the entered ETH amount into integer wei, and requests wallet approval. Once a transaction is broadcast, the hash is retained immediately so a temporary storage or network failure cannot cause the transfer to be sent twice.
+
+Both flows finish at the same verification layer. Snitch checks the Sepolia chain, sender, recipient, exact amount, transaction data, successful receipt, and confirmed block before it updates the workspace. Confirmed invoices and payouts are stored in Turso in production and local libSQL during development.
+
+<p align="center">
+  <!-- Add the Snitch payment-flow or architecture screenshot here later.
+  <img width="852" height="621" alt="Snitch payment flow" src="YOUR_SCREENSHOT_URL" />
+  -->
+</p>
+
+## Transaction verification and settlement
+
+Snitch does not treat a button click or client response as proof of payment. A transaction becomes successful only after the backend retrieves it from the configured Ethereum RPC, validates its fields, finds a successful receipt, and confirms that receipt against a canonical block.
+
+Invoice transfers include a small `snitchpay:<invoiceId>` reference in the native transaction data. This gives the prototype an invoice-specific onchain reference without introducing a custom smart contract. Payouts require empty native-transfer data and must originate from the wallet bound to the selected company. A transaction hash is unique across stored confirmations, preventing one transfer from settling more than one record.
+
+Payment states remain visible throughout the process:
+
+```text
+Invoice: created → awaiting wallet approval → confirming → succeeded
+Payout:  awaiting wallet approval → incomplete → succeeded | failed
+```
+
+Unmined transactions remain incomplete. Reverted payouts are recorded as failed, while unpaid invoices remain available until their due date expires. Confirmed records include a direct explorer link so the public onchain transfer can be checked independently.
+
+## Durable records and deletion handling
+
+Production records are stored in a remote Turso database through the libSQL client. Local development uses `.data/snitch.sqlite`. The database stores company metadata, Privy user identifiers, public wallet addresses, invoices, payment confirmations, payouts, and export challenges. It does not contain private keys, recovery phrases, or wallet signing material.
+
+Company, invoice, and payout records are scoped to the authenticated owner. Deleting an invoice or payout removes its stored record and writes a durable deletion marker, preventing later reconciliation from restoring something the user intentionally removed. Deleting a company removes its Snitch records in one database transaction but does not delete, transfer, or modify the underlying Privy wallet.
+
+## Payment recovery and resilience
+
+Snitch separates broadcasting a transaction from recording its result. As soon as Privy returns a transaction hash, the browser retains an owner-scoped recovery record containing public transaction details. The server then verifies and persists that existing transfer. If a request is interrupted, Snitch retries verification with the same hash instead of asking the wallet to send again.
+
+Invoice checkout and company history recheck incomplete transactions when they are opened. A delayed network receipt can therefore move an existing record from incomplete to succeeded after confirmation. Duplicate hashes, mismatched wallets, incorrect amounts, wrong networks, expired export challenges, and reused signing nonces are rejected rather than repaired with assumed data.
+
+## Company workspace
+
+The workspace brings each account's treasury balance, recorded activity, invoices, and payouts into one interface. Live balances are read from Ethereum Sepolia; an unavailable RPC produces an unavailable state rather than a simulated number. Transaction views can be filtered by status, and transaction or payout records can be exported as CSV for further reconciliation.
+
+Every account remains financially distinct. New invoices resolve to that account's verified receiving wallet, new payouts request its corresponding Privy wallet, and persisted records reload after sign-out or deployment. Public showcase records remain separate from a user's company data and do not determine a connected treasury's live balance.
+
+## Run locally
+
+Snitch requires Node.js `22.14` or newer within the Node 22 release line, npm, and a Privy application configured for email authentication. A Sepolia wallet needs test ETH before it can send a payout or pay an invoice.
 
 ```bash
 npm ci
 cp .env.example .env.local
 ```
 
-Set the Privy App ID and server secret in `.env.local`, enable email login in the Privy dashboard, and allow your local origin. Then run:
+Add the required Privy values to `.env.local`, then start the application:
 
 ```bash
 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-Open [127.0.0.1:3000](http://127.0.0.1:3000). The public preview is available at [/?demo=1](http://127.0.0.1:3000/?demo=1) without authentication. Sign in and create a company to use its wallet. Fund that address with Sepolia test ETH before sending payouts; customer checkout also requires a funded Sepolia wallet.
+Open `http://127.0.0.1:3000`. Local development uses `.data/snitch.sqlite` automatically. Configure Resend only when invoice email delivery is required; configure Turso when testing against a shared remote database.
 
-### Environment
+## Configuration
 
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | Public Privy application identifier used by the browser and server. |
-| `PRIVY_APP_SECRET` | Server-only Privy credential for token and account verification. |
-| `NEXT_PUBLIC_ETHEREUM_RPC_URL` | Browser Sepolia RPC URL; defaults to the public endpoint in `.env.example`. |
-| `ETHEREUM_RPC_URL` | Optional server Sepolia RPC override for balances and verification. |
-| `TURSO_DATABASE_URL` | Server-only remote libSQL URL, required on Vercel. |
-| `TURSO_AUTH_TOKEN` | Server-only database-scoped read/write credential. |
-| `SNITCH_DATA_DIR` | Local database directory; defaults to `.data`. Only persistent Node hosts may use local files in production. |
-| `SNITCH_PUBLIC_ORIGIN` | Public frontend origin used by the backend when it generates hosted checkout links. |
-| `RESEND_API_KEY` | Server-only Resend credential for sending saved invoices by email. |
-| `RESEND_FROM` | Sender name and address; defaults to `Snitch <onboarding@resend.dev>`. The test sender can email only the Resend account owner. |
-| `NEXT_PUBLIC_ETHEREUM_TREASURY_ADDRESS` | Legacy invoice-helper fallback. Authenticated invoice creation always uses the stored company wallet. |
+The complete configuration template is available in `.env.example`.
 
-Keep `.env.local`, database files, tokens, and private keys out of source control. Variables beginning with `NEXT_PUBLIC_` are browser-visible; never place server credentials there.
+```env
+# Privy authentication and wallet infrastructure
+NEXT_PUBLIC_PRIVY_APP_ID=
+PRIVY_APP_SECRET=
 
-See [invoice email setup](docs/invoice-email.md) for Resend configuration and delivery checks.
+# Ethereum Sepolia RPC
+NEXT_PUBLIC_ETHEREUM_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+ETHEREUM_RPC_URL=
 
-## Storage and wallet authority
+# Remote production database
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
 
-Companies, wallet bindings, invoices, confirmed payments, payouts, and export challenges persist in Turso on Vercel and `.data/snitch.sqlite` during local development. Profile names are saved in Privy custom metadata. Snitch records public wallet identifiers and payment data; it does not receive private keys or register a server signer.
+# Hosted invoice links
+SNITCH_PUBLIC_ORIGIN=https://snitchpay.vercel.app
 
-The company creator controls the embedded wallet through their Privy identity and is assigned CFO in Snitch. CFO verification gates the normal **Snitch export flow**, not Privy's independent owner recovery capabilities. Connect's other editable roles are interface state; they do not grant shared signing authority or create persisted invitations.
+# Optional invoice email delivery
+RESEND_API_KEY=
+RESEND_FROM="Snitch <onboarding@resend.dev>"
 
-Successful showcase rows are verified public-transfer snapshots, not payments made by Snitch customers or the connected user's wallet. Their presentation names and invoice references are illustrative, and they do not determine the connected wallet's balance. See [record provenance](docs/showcase-blockchain.md).
-
-## Project structure
-
-| Path | Responsibility |
-| --- | --- |
-| `src/app/page.tsx`, `src/app/home-client.tsx` | Public entry, company selection, and workspace screens. |
-| `src/components/landing/`, `src/components/ui/` | Landing page sections, styles, and shared UI components. |
-| `src/components/auth/` | Privy session, profile setup, company-wallet provisioning, and CFO verification. |
-| `src/components/wallets/`, `src/components/payments/` | Treasury views, analytics, export dialog, and payment forms. |
-| `src/app/transactions/` | Public hosted invoice checkout. |
-| `src/app/api/` | Authenticated company operations and public checkout verification endpoints. |
-| `src/lib/` | SQLite stores, ownership checks, invoice rules, and record formatting. |
-| `services/ethereum.ts` | Sepolia wallet interaction, exact ETH amounts, and transaction verification. |
-| `src/data/`, `scripts/collect-showcase-*.mjs` | Public blockchain snapshots and read-only collection scripts. |
-| `tests/` | Authentication, storage, payment, wallet, and recovery tests. |
-
-Built with Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui components, Privy, and ethers.
-
-## Validation
-
-```bash
-npm run check:repo
-npm test
-npx tsc --noEmit
-npm run lint
-npm run build
+# Optional persistent local database directory
+# SNITCH_DATA_DIR=/absolute/path/to/snitch-data
 ```
 
-Tests use temporary SQLite databases, local test signatures, and stubbed Privy/RPC responses. They do not send login emails, transfer funds, create real wallets, or export private keys. Complete live sign-in and wallet approval checks using your own test account.
+Only variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. Privy secrets, Turso tokens, Resend credentials, local databases, and private keys must never be committed. Vercel deployments require Turso because serverless local files are not durable.
 
-For a production-mode local run, set `SNITCH_DATA_DIR` to an absolute directory before starting:
+## Useful commands
 
 ```bash
-npm run build
-SNITCH_DATA_DIR="$PWD/.data" npm run start
+npm run dev          # Start the local Next.js application with Webpack
+npm run build        # Create and validate the production build
+npm run start        # Start a completed production build
+npm run lint         # Run ESLint across the repository
+npm test             # Run the Node and TypeScript test suite
+npm run db:migrate   # Initialise or migrate the configured database
+npm run check:repo   # Scan tracked files for blocked artefacts and credentials
+npx tsc --noEmit     # Validate TypeScript without emitting files
 ```
 
-Production runs entirely on Vercel at `https://snitchpay.vercel.app` with remote libSQL storage. All instances share the same company and wallet records. Use HTTPS, exact Privy allowed origins, server-only database credentials, and database backups. Compliance controls, API-key issuance, multi-user wallet policies, and stablecoin settlement remain outside the implemented backend.
+## Security and current scope
 
-### Vercel builds
+Snitch currently executes native ETH transfers on Ethereum Sepolia (`11155111`). It does not execute mainnet payments, stablecoin transfers, batch payroll, refunds, or dispute resolution. Base activity shown in the public showcase is historical presentation data rather than a supported settlement network.
 
-`vercel.json` selects the Next.js framework, installs the locked dependencies including build tooling, and runs `npm run build`. This preserves the project's `next build --webpack` command and its Privy connector alias. Running bare `next build` selects Turbopack and fails against the Webpack configuration. The Node engine range keeps deployments on supported Node 22 releases.
+The current prototype binds each company wallet to its creator's Privy identity. Snitch applies its own designated-controller check to the normal key-export path, while Privy's authenticated wallet owner retains Privy's independent recovery and export capabilities. Additional roles shown in the Connect interface do not yet create persisted invitations, shared signing rights, approval thresholds, or owner transfer.
 
-Set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, the Privy credentials, and `SNITCH_PUBLIC_ORIGIN=https://snitchpay.vercel.app` in Vercel before redeploying. API routes and hosted checkout use the same remote database; no separate backend or API proxy is required. Local SQLite files and `/tmp` are rejected in Vercel functions.
+Snitch stores the public wallet and payment metadata required to operate the workspace. Public Ethereum transfers remain visible onchain. Snitch does not receive or store private keys and does not maintain a server-side wallet capable of signing company transactions. See [Privy authentication](docs/privy-auth.md), [company wallets](docs/company-wallets.md), [payment settlement](docs/payment-settlement.md), [invoice email](docs/invoice-email.md), and [Vercel database setup](docs/vercel-database.md) for the detailed trust boundaries and operating procedures.
 
-See [Vercel database setup](docs/vercel-database.md) for schema initialization and migration. Preserve existing company/CFO/wallet associations when importing records; expired export approvals must not move to the new environment.
+## AI Disclosure
 
-## Further documentation
-
-- [Authentication and profile setup](docs/privy-auth.md)
-- [Company wallets, payouts, and CFO export verification](docs/company-wallets.md)
-- [Showcase blockchain provenance](docs/showcase-blockchain.md)
-- [Design conventions](DESIGN.md)
-- [Development history](docs/development-history.md)
+ChatGPT and OpenAI Codex, including the Astra coding model, were used as development tools to help debug wallet integration issues and implement parts of the frontend. AI-generated suggestions and code were reviewed, tested, and integrated by the project developer, who remains responsible for the final architecture and implementation.
