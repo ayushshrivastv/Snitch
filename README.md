@@ -29,15 +29,17 @@ Try Snitch at https://snitchpay.vercel.app
 
 ETHGlobal ETHOnline 2026 × Privy 🤍
 
-## Privy wallet infrastructure
+## How Snitch uses Privy
 
-Privy provides the authentication and wallet layer at the centre of Snitch. Team members sign in through Privy, while protected Snitch API routes independently verify their Privy access tokens before returning company or payment data.
+Privy gives every Snitch account a secure wallet of its own. With seamless authentication and role-based access, teams can manage treasuries, approve payouts, receive invoice payments, and securely export their keys. Privy protects every point where wallet authority is required, from account access to transaction signing, while Snitch never holds the company’s funds or private keys.
 
-We deliberately separated authentication from treasury creation. Signing in does not generate a wallet. When a user creates a company account, Snitch asks Privy to create a dedicated embedded Ethereum wallet, verifies that it belongs to the authenticated identity, and binds its public address to that account. This gives every account an independent treasury without creating a Snitch-controlled signer.
+When a company creates an account, Snitch provisions a dedicated Privy embedded Ethereum wallet for it. Each account therefore operates as an independent treasury with its own public address, balance, and transaction history. A company can separate departments, projects, regions, or payment flows while managing every account from the same workspace.
 
-Privy also handles the actions that require wallet authority. Company payouts open Privy's approval interface for the exact wallet, destination, amount, and Sepolia network. Invoice recipients connect their own Ethereum wallet through Privy and approve the payment from the hosted checkout page. Snitch receives the public transaction hash and verifies the resulting transfer independently.
+Privy handles authentication before a team member enters the workspace and provides the approval interface whenever money moves. For a payout, the authorised user reviews the company wallet, destination, amount, and network before signing. For an invoice payment, the customer connects an Ethereum wallet through Privy, reviews the prepared payment, and approves it from checkout. Snitch receives the public transaction hash, verifies the transfer onchain, and updates the company’s records only after the network confirms it.
 
-Key export is protected by an additional application-level check. Snitch issues a five-minute, single-use message containing the company, user, wallet, purpose, nonce, and expiry. The designated wallet controller signs that message with the selected company wallet. Only after the server verifies and consumes the challenge does the client open Privy's protected export interface. The private key and recovery phrase never pass through Snitch.
+Sensitive actions receive an additional layer of control. Key export is limited to the authorised account role, and the wallet controller must sign a short-lived, single-use verification message before Privy opens its protected export interface. The private key and recovery phrase remain inside Privy’s interface and never pass through Snitch.
+
+This gives finance teams the structure they need without taking wallet ownership away from the company. Privy secures access and signing, the company remains in control of its assets and keys, and Snitch manages the surrounding treasury, payout, invoice, and transaction workflows.
 
 <p align="center">
  <img width="852" height="621" alt="Screenshot 2026-09-13 at 11 49 26" src="https://github.com/user-attachments/assets/f0ce3dd9-7c18-4c5c-b687-b59cd9e752dc" />
@@ -50,10 +52,6 @@ Key export is protected by an additional application-level check. Snitch issues 
 <p align="center">
   <img width="852" height="621" alt="Screenshot 2026-09-13 at 11 49 49" src="https://github.com/user-attachments/assets/61615e47-5510-46ca-9512-c8936fb62bbe" />
 </p>
-
-## Credits
-
-Snitch was designed and built by [Ayush Srivastava](https://github.com/ayushshrivastv) for ETHOnline 2026. Privy is the partner technology used for authentication, embedded company wallets, external wallet connections, transaction approval, message signing, and protected key export. Repository import chronology and provenance are documented in the [development history](docs/development-history.md).
 
 ## How Snitch Works
 
