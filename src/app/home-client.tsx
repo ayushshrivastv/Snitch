@@ -3608,7 +3608,7 @@ function ComplianceView({
             </h1>
             <p className="mt-3 max-w-[480px] text-center text-base leading-6 text-muted-foreground">
               We need to verify who you are before you can send payments through
-              Prism. Please continue to start the process.
+              Snitch. Please continue to start the process.
             </p>
 
             <div className="mt-8 flex w-full items-start gap-3 rounded-lg border border-border px-4 py-4">

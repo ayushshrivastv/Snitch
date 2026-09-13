@@ -1,4 +1,4 @@
-# Brand — Prism
+# Brand — Snitch
 
 _Status: deferred_
 
